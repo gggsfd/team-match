@@ -1,0 +1,37 @@
+# ========================================
+# 不纳入版本管理的文件/目录
+# ========================================
+
+# myfile/ - 开发设计文档（仅本地参考，不提交）
+myfile/
+
+# 上传文件目录
+uploads/avatars/*
+!uploads/avatars/.gitkeep
+
+# IDE 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统垃圾文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志文件
+*.log
+runtime/
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+
+# 依赖目录
+vendor/
+node_modules/
+
+# 本地配置覆盖
+config/database.php.local

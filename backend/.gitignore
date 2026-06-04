@@ -1,0 +1,15 @@
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+uploads/avatars/*
+!uploads/avatars/.gitkeep
+config/database.php.local
+*.log
+runtime/
+*.tmp
+*.temp
+*.bak
