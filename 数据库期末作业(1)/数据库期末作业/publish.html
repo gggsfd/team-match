@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamMatch - 发布项目</title>
+    <link rel="stylesheet" href="lib/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="card-title mb-4">发布新项目</h3>
+
+                        <form id="publishForm">
+                            <div class="form-group">
+                                <label for="courseSelect">所属课程 <span class="text-danger">*</span></label>
+                                <select class="form-control" id="courseSelect" required>
+                                    <option value="">请选择课程</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="projectName">项目名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="projectName" placeholder="请输入项目名称" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="projectDesc">项目描述</label>
+                                <textarea class="form-control" id="projectDesc" rows="4" placeholder="描述一下你的项目..."></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="maxMembers">最大人数</label>
+                                <input type="number" class="form-control" id="maxMembers" value="4" min="2" max="10">
+                                <small class="form-text text-muted">包含组长在内，默认4人</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="deadline">截止日期</label>
+                                <input type="date" class="form-control" id="deadline">
+                            </div>
+
+                            <div class="form-group">
+                                <label>需求技能 <span class="text-danger">*</span></label>
+                                <div id="skillCheckboxes" class="row">
+                                    <!-- 动态加载 -->
+                                </div>
+                                <small class="form-text text-muted">至少选择一项</small>
+                            </div>
+
+                            <div class="form-group mt-4">
+                                <button type="submit" class="btn btn-primary btn-lg btn-block">发布项目</button>
+                                <a href="index.html" class="btn btn-outline-secondary btn-block mt-2">取消</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/jquery.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        $(function() {
+            TeamMatch.util.initNavbar('publish');
+
+            // 检查登录
+            if (!TeamMatch.util.requireLogin()) return;
+
+            // 加载课程列表
+            function loadCourses() {
+                TeamMatch.courseApi.getList().then(function(res) {
+                    if (res.code === 200 && res.data) {
+                        var html = '<option value="">请选择课程</option>';
+                        res.data.forEach(function(course) {
+                            html += '<option value="' + course.cid + '">' + course.cname + '</option>';
+                        });
+                        $('#courseSelect').html(html);
+                    }
+                });
+            }
+
+            // 加载技能列表
+            function loadSkills() {
+                var html = '';
+                TeamMatch.util.skillList.forEach(function(skill, index) {
+                    var categoryClass = TeamMatch.util.skillCategoryMap[skill.category] || 'badge-secondary';
+                    html += '<div class="col-md-4 col-sm-6 mb-2">' +
+                        '<div class="form-check">' +
+                        '<input class="form-check-input" type="checkbox" value="' + skill.sid + '" id="skill' + skill.sid + '">' +
+                        '<label class="form-check-label" for="skill' + skill.sid + '">' +
+                        skill.sname + ' <span class="badge ' + categoryClass + '">' + skill.category + '</span>' +
+                        '</label></div></div>';
+                });
+                $('#skillCheckboxes').html(html);
+            }
+
+            // 发布表单提交
+            $('#publishForm').on('submit', function(e) {
+                e.preventDefault();
+
+                var cid = $('#courseSelect').val();
+                var pname = $('#projectName').val().trim();
+                var description = $('#projectDesc').val().trim();
+                var max_members = parseInt($('#maxMembers').val()) || 4;
+                var deadline = $('#deadline').val();
+
+                // 获取选中的技能
+                var skill_ids = [];
+                $('#skillCheckboxes input:checked').each(function() {
+                    skill_ids.push(parseInt($(this).val()));
+                });
+
+                if (!cid) {
+                    TeamMatch.util.showToast('请选择所属课程', 'error');
+                    return;
+                }
+
+                if (!pname) {
+                    TeamMatch.util.showToast('请输入项目名称', 'error');
+                    return;
+                }
+
+                if (skill_ids.length === 0) {
+                    TeamMatch.util.showToast('请至少选择一项需求技能', 'error');
+                    return;
+                }
+
+                var data = {
+                    cid: parseInt(cid),
+                    pname: pname,
+                    skill_ids: skill_ids,
+                    max_members: max_members
+                };
+
+                if (description) data.description = description;
+                if (deadline) data.deadline = deadline;
+
+                TeamMatch.projectApi.create(data).then(function(res) {
+                    if (res.code === 200) {
+                        TeamMatch.util.showToast('项目发布成功', 'success');
+                        setTimeout(function() {
+                            window.location.href = 'project.html?pid=' + res.data.pid;
+                        }, 500);
+                    } else {
+                        TeamMatch.util.showToast(res.message || '发布失败', 'error');
+                    }
+                }).catch(function() {
+                    TeamMatch.util.showToast('发布失败', 'error');
+                });
+            });
+
+            // 初始化
+            loadCourses();
+            loadSkills();
+        });
+    </script>
+</body>
+</html>

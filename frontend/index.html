@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamMatch - 课程项目组队匹配系统</title>
+<link rel="stylesheet" href="lib/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <div class="container">
+    <a class="navbar-brand" href="index.html">TeamMatch</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item active"><a class="nav-link" href="index.html">首页</a></li>
+        <li class="nav-item"><a class="nav-link" href="recommend.html">智能推荐</a></li>
+        <li class="nav-item"><a class="nav-link" href="publish.html">发布项目</a></li>
+      </ul>
+      <span id="nav-user-info">
+        <a class="btn btn-outline-light btn-sm" href="login.html">登录</a>
+        <a class="btn btn-light btn-sm ml-2" href="register.html">注册</a>
+      </span>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-4">
+  <!-- 搜索栏-->
+  <div class="row mb-3">
+    <div class="col-md-4 mb-2">
+      <select class="form-control" id="courseFilter">
+        <option value="">全部课程</option>
+      </select>
+    </div>
+    <div class="col-md-3 mb-2">
+      <select class="form-control" id="statusFilter">
+        <option value="">全部状态</option>
+        <option value="0">招募中</option>
+        <option value="1">已满</option>
+        <option value="2">进行中</option>
+        <option value="3">已结束</option>
+      </select>
+    </div>
+    <div class="col-md-5 mb-2">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="form-control" id="keywordSearch" placeholder="搜索项目名称...">
+      </div>
+    </div>
+  </div>
+
+  <!-- 状态快捷过滤-->
+  <div class="mb-3">
+    <button class="btn btn-sm btn-outline-primary filter-btn active" data-status="">全部</button>
+    <button class="btn btn-sm btn-outline-success filter-btn" data-status="0">招募中</button>
+    <button class="btn btn-sm btn-outline-warning filter-btn" data-status="1">已满</button>
+    <button class="btn btn-sm btn-outline-info filter-btn" data-status="2">进行中</button>
+    <button class="btn btn-sm btn-outline-secondary filter-btn" data-status="3">已结束</button>
+  </div>
+
+  <!-- 项目列表 -->
+  <div class="row" id="projectList"></div>
+
+  <!-- 分页 -->
+  <nav class="mt-4" id="pagination"></nav>
+
+  <!-- 空状态-->
+  <div id="emptyState" class="empty-state" style="display:none">
+    <div style="font-size:3rem">📭</div>
+    <p>暂无符合条件的项目</p>
+  </div>
+</div>
+
+<script src="lib/jquery.min.js"></script>
+<script src="js/api.js"></script>
+<script>
+let currentPage = 1;
+
+// 初始化导航
+$(function() {
+  var u = TeamMatch.util.getUser();
+  if (u) {
+    $('#nav-user-info').html(
+      '<span class="navbar-text mr-3 text-white">' + u.nickname + '</span>' +
+      (u.role === 'admin' ? '<a class="btn btn-outline-warning btn-sm mr-2" href="admin.html">管理后台</a>' : '') +
+      '<a class="btn btn-outline-light btn-sm mr-2" href="profile.html">个人中心</a>' +
+      '<button class="btn btn-outline-danger btn-sm" onclick="TeamMatch.util.logout()">退出</button>'
+    );
+  }
+  loadCourses();
+  loadProjects();
+});
+
+// 加载课程列表
+async function loadCourses() {
+  try {
+    var res = await TeamMatch.courseApi.getList();
+    if (res.code === 200 && res.data) {
+      var sel = $('#courseFilter');
+      sel.find('option:not(:first)').remove();
+      res.data.forEach(function(c) {
+        sel.append('<option value="' + c.cid + '">' + c.cname + ' (' + (c.project_count || 0) + '个项目)</option>');
+      });
+    }
+  } catch (e) {
+    console.error('[TeamMatch] 课程加载失败:', e);
+  }
+}
+
+// 加载项目列表
+async function loadProjects() {
+  var params = { page: currentPage, page_size: 12 };
+  var cid = $('#courseFilter').val();
+  var status = $('#statusFilter').val();
+  var kw = $('#keywordSearch').val().trim();
+  if (cid) params.cid = cid;
+  if (status !== '') params.status = status;
+  if (kw) params.keyword = kw;
+
+  TeamMatch.util.setLoading('#projectList', true);
+  $('#emptyState').hide();
+  $('#pagination').html('');
+
+  try {
+    var res = await TeamMatch.projectApi.getList(params);
+    if (res.code === 200 && res.data) {
+      renderProjects(res.data.list);
+      renderPagination(res.data.total, res.data.page, res.data.page_size);
+      $('#emptyState').toggle((res.data.list || []).length === 0);
+    } else {
+      TeamMatch.util.showError('#projectList', res.message || '数据加载失败', function() { loadProjects(); });
+    }
+  } catch (e) {
+    console.error('[TeamMatch] 项目加载失败:', e);
+    TeamMatch.util.showError('#projectList', e.message || '网络异常，请检查服务器是否启动', function() { loadProjects(); });
+  }
+}
+
+function renderProjects(list) {
+  var html = '';
+  (list || []).forEach(function(p) {
+    var statusMap = {0: '招募中', 1: '已满', 2: '进行中', 3: '已结束'};
+    var statusBadge = {0: 'success', 1: 'warning', 2: 'primary', 3: 'secondary'};
+    var skillsHtml = (p.skills || []).map(function(s) { return '<span class="skill-tag skill-tech">' + s + '</span>'; }).join('');
+
+    html += '<div class="col-lg-4 col-md-6 mb-3">' +
+      '<div class="card project-card h-100">' +
+      '<div class="card-body">' +
+      '<div class="d-flex justify-content-between align-items-start mb-2">' +
+      '<h5 class="card-title mb-0"><a href="project.html?pid=' + p.pid + '" class="text-dark">' + (p.pname || '') + '</a></h5>' +
+      '<span class="badge badge-' + (statusBadge[p.status] || 'secondary') + '">' + (statusMap[p.status] || '') + '</span>' +
+      '</div>' +
+      '<p class="card-text text-muted small mb-2">' + (p.description || '').substring(0, 60) + (p.description && p.description.length > 60 ? '...' : '') + '</p>' +
+      '<div class="mb-2">' + skillsHtml + '</div>' +
+      '<div class="d-flex justify-content-between meta">' +
+      '<span>👤 ' + (p.current_members || 0) + '/' + (p.max_members || 0) + ' 人</span>' +
+      '<span>' + (p.course_cname || '') + '</span>' +
+      '</div>' +
+      '<div class="meta mt-1">组长: ' + (p.creator_nickname || '') + '</div>' +
+      '</div></div></div>';
+  });
+  $('#projectList').html(html);
+}
+
+function renderPagination(total, page, pageSize) {
+  var totalPages = Math.ceil(total / pageSize);
+  if (totalPages <= 1) { $('#pagination').html(''); return; }
+  var html = '<ul class="pagination justify-content-center">';
+  html += '<li class="page-item ' + (page <= 1 ? 'disabled' : '') + '"><a class="page-link" href="#" data-page="' + (page - 1) + '">上一页</a></li>';
+  for (var i = 1; i <= totalPages; i++) {
+    html += '<li class="page-item ' + (i === page ? 'active' : '') + '"><a class="page-link" href="#" data-page="' + i + '">' + i + '</a></li>';
+  }
+  html += '<li class="page-item ' + (page >= totalPages ? 'disabled' : '') + '"><a class="page-link" href="#" data-page="' + (page + 1) + '">下一页</a></li>';
+  html += '</ul>';
+  $('#pagination').html(html);
+  $('#pagination .page-link').click(function(e) {
+    e.preventDefault();
+    currentPage = parseInt($(this).data('page'));
+    loadProjects();
+    window.scrollTo(0, 0);
+  });
+}
+
+// 筛选事件
+$('#courseFilter, #statusFilter').on('change', function() { currentPage = 1; loadProjects(); });
+$('#keywordSearch').on('input', function() {
+  clearTimeout(this._timer);
+  this._timer = setTimeout(function() { currentPage = 1; loadProjects(); }, 400);
+});
+
+// 快捷过滤按钮
+$('.filter-btn').click(function() {
+  $('.filter-btn').removeClass('active');
+  $(this).addClass('active');
+  $('#statusFilter').val($(this).data('status'));
+  currentPage = 1;
+  loadProjects();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamMatch - 登录</title>
+    <link rel="stylesheet" href="lib/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="login-card">
+            <h2 class="card-title">TeamMatch</h2>
+            <p class="text-center text-muted mb-4">课程项目组队匹配系统</p>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">学号</label>
+                    <input type="text" class="form-control" id="username" name="username" placeholder="请输入学号" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" class="form-control" id="password" name="password" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-lg">登录</button>
+            </form>
+
+            <div class="text-center mt-3">
+                <span class="text-muted">还没有账号？</span>
+                <a href="register.html">去注册</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/jquery.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        $(function() {
+            // 如果已登录，跳转到首页
+            if (TeamMatch.util.getToken()) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            $('#loginForm').on('submit', function(e) {
+                e.preventDefault();
+
+                var username = $('#username').val().trim();
+                var password = $('#password').val();
+
+                if (!username || !password) {
+                    TeamMatch.util.showToast('请填写完整信息', 'error');
+                    return;
+                }
+
+                TeamMatch.userApi.login({
+                    username: username,
+                    password: password
+                }).then(function(res) {
+                    if (res.code === 200) {
+                        TeamMatch.util.saveUser(res.data);
+                        TeamMatch.util.showToast('登录成功', 'success');
+                        setTimeout(function() {
+                            window.location.href = 'index.html';
+                        }, 500);
+                    } else {
+                        TeamMatch.util.showToast(res.message || '登录失败', 'error');
+                    }
+                }).catch(function(err) {
+                    console.error(err);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

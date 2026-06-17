@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamMatch - 管理后台</title>
+    <link rel="stylesheet" href="lib/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container mt-4">
+        <h3 class="mb-4">管理后台</h3>
+
+        <!-- 统计卡片 -->
+        <div class="row mb-4" id="statsArea">
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="stats-number" id="totalUsers">-</div>
+                    <div class="stats-label">总用户数</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="stats-number" id="activeUsers">-</div>
+                    <div class="stats-label">活跃用户</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="stats-number" id="totalProjects">-</div>
+                    <div class="stats-label">总项目数</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="stats-number" id="pendingApps">-</div>
+                    <div class="stats-label">待处理申请</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 用户管理 -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">用户管理</h5>
+                    <button class="btn btn-primary btn-sm" id="createUserBtn">+ 创建用户</button>
+                </div>
+
+                <!-- 筛选 -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <select class="form-control" id="roleFilter">
+                            <option value="">全部角色</option>
+                            <option value="admin">管理员</option>
+                            <option value="member">普通用户</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-control" id="statusFilter">
+                            <option value="">全部状态</option>
+                            <option value="1">启用</option>
+                            <option value="0">禁用</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" id="searchInput" placeholder="搜索学号或昵称...">
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary btn-block" id="searchBtn">搜索</button>
+                    </div>
+                </div>
+
+                <!-- 用户表格 -->
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>学号</th>
+                                <th>昵称</th>
+                                <th>邮箱</th>
+                                <th>角色</th>
+                                <th>信用分</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTable">
+                            <!-- 动态加载 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                <nav id="pagination">
+                    <ul class="pagination justify-content-center">
+                        <!-- 动态加载 -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建用户Modal -->
+    <div class="modal fade" id="createUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">创建用户</h5>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="createUserForm">
+                        <div class="form-group">
+                            <label>学号 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="newUsername" required>
+                        </div>
+                        <div class="form-group">
+                            <label>密码 <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="newPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label>昵称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="newNickname" required>
+                        </div>
+                        <div class="form-group">
+                            <label>角色</label>
+                            <select class="form-control" id="newRole">
+                                <option value="member">普通用户</option>
+                                <option value="admin">管理员</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>邮箱</label>
+                            <input type="email" class="form-control" id="newEmail">
+                        </div>
+                        <div class="form-group">
+                            <label>手机号</label>
+                            <input type="tel" class="form-control" id="newPhone">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmCreate">创建</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑用户Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">编辑用户</h5>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="editUserForm">
+                        <input type="hidden" id="editUid">
+                        <div class="form-group">
+                            <label>昵称</label>
+                            <input type="text" class="form-control" id="editNickname2">
+                        </div>
+                        <div class="form-group">
+                            <label>邮箱</label>
+                            <input type="email" class="form-control" id="editEmail2">
+                        </div>
+                        <div class="form-group">
+                            <label>手机号</label>
+                            <input type="tel" class="form-control" id="editPhone2">
+                        </div>
+                        <div class="form-group">
+                            <label>角色</label>
+                            <select class="form-control" id="editRole2">
+                                <option value="member">普通用户</option>
+                                <option value="admin">管理员</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmEdit">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/jquery.min.js"></script>
+    <script src="lib/bootstrap.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        $(function() {
+            TeamMatch.util.initNavbar('admin');
+
+            // 检查管理员权限
+            if (!TeamMatch.util.requireAdmin()) return;
+
+            var currentPage = 1;
+            var pageSize = 10;
+            var totalPages = 1;
+
+            // 加载统计数据
+            function loadStats() {
+                TeamMatch.adminApi.getStats().then(function(res) {
+                    if (res.code === 200 && res.data) {
+                        $('#totalUsers').text(res.data.total_users || 0);
+                        $('#activeUsers').text(res.data.active_users || 0);
+                        $('#totalProjects').text(res.data.total_projects || 0);
+                        $('#pendingApps').text(res.data.pending_applications || 0);
+                    }
+                });
+            }
+
+            // 加载用户列表
+            function loadUsers(page) {
+                page = page || 1;
+                currentPage = page;
+
+                var params = {
+                    page: page,
+                    page_size: pageSize
+                };
+
+                var role = $('#roleFilter').val();
+                var isActive = $('#statusFilter').val();
+                var keyword = $('#searchInput').val().trim();
+
+                if (role) params.role = role;
+                if (isActive !== '') params.is_active = isActive;
+                if (keyword) params.keyword = keyword;
+
+                TeamMatch.adminApi.getUsers(params).then(function(res) {
+                    if (res.code === 200 && res.data) {
+                        renderUsers(res.data.list || []);
+                        totalPages = Math.ceil((res.data.total || 0) / pageSize);
+                        renderPagination();
+                    }
+                });
+            }
+
+            // 渲染用户表格
+            function renderUsers(users) {
+                if (!users || users.length === 0) {
+                    $('#userTable').html('<tr><td colspan="7" class="text-center text-muted">暂无用户</td></tr>');
+                    return;
+                }
+
+                var html = '';
+                users.forEach(function(u) {
+                    var roleBadge = u.role === 'admin' ?
+                        '<span class="badge badge-danger">管理员</span>' :
+                        '<span class="badge badge-secondary">普通用户</span>';
+                    var statusBadge = u.is_active ?
+                        '<span class="badge badge-success">启用</span>' :
+                        '<span class="badge badge-secondary">禁用</span>';
+
+                    html += '<tr>' +
+                        '<td>' + u.username + '</td>' +
+                        '<td>' + u.nickname + '</td>' +
+                        '<td>' + (u.email || '-') + '</td>' +
+                        '<td>' + roleBadge + '</td>' +
+                        '<td>' + u.credit_score + '</td>' +
+                        '<td>' + statusBadge + '</td>' +
+                        '<td>' +
+                        '<button class="btn btn-sm btn-outline-primary mr-1 edit-btn" data-uid="' + u.uid + '" data-nickname="' + u.nickname + '" data-email="' + (u.email || '') + '" data-phone="' + (u.phone || '') + '" data-role="' + u.role + '">编辑</button>' +
+                        '<button class="btn btn-sm ' + (u.is_active ? 'btn-outline-danger' : 'btn-outline-success') + ' toggle-btn" data-uid="' + u.uid + '" data-active="' + (u.is_active ? 1 : 0) + '">' + (u.is_active ? '禁用' : '启用') + '</button>' +
+                        '</td></tr>';
+                });
+                $('#userTable').html(html);
+
+                // 绑定编辑事件
+                $('.edit-btn').on('click', function() {
+                    var uid = $(this).data('uid');
+                    $('#editUid').val(uid);
+                    $('#editNickname2').val($(this).data('nickname'));
+                    $('#editEmail2').val($(this).data('email'));
+                    $('#editPhone2').val($(this).data('phone'));
+                    $('#editRole2').val($(this).data('role'));
+                    $('#editUserModal').modal('show');
+                });
+
+                // 绑定启用/禁用事件
+                $('.toggle-btn').on('click', function() {
+                    var uid = $(this).data('uid');
+                    var isActive = $(this).data('active');
+                    var action = isActive ? '禁用' : '启用';
+                    if (confirm('确定要' + action + '该用户吗？')) {
+                        TeamMatch.adminApi.updateUser({
+                            uid: uid,
+                            is_active: isActive ? 0 : 1
+                        }).then(function(res) {
+                            if (res.code === 200) {
+                                TeamMatch.util.showToast(action + '成功', 'success');
+                                loadUsers(currentPage);
+                            } else {
+                                TeamMatch.util.showToast(res.message || '操作失败', 'error');
+                            }
+                        });
+                    }
+                });
+            }
+
+            // 渲染分页
+            function renderPagination() {
+                if (totalPages <= 1) {
+                    $('#pagination').hide();
+                    return;
+                }
+
+                var html = '';
+                html += '<li class="page-item ' + (currentPage === 1 ? 'disabled' : '') + '">' +
+                    '<a class="page-link" href="#" data-page="' + (currentPage - 1) + '">上一页</a></li>';
+
+                for (var i = 1; i <= totalPages; i++) {
+                    if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                        html += '<li class="page-item ' + (i === currentPage ? 'active' : '') + '">' +
+                            '<a class="page-link" href="#" data-page="' + i + '">' + i + '</a></li>';
+                    } else if (i === currentPage - 2 || i === currentPage + 2) {
+                        html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                    }
+                }
+
+                html += '<li class="page-item ' + (currentPage === totalPages ? 'disabled' : '') + '">' +
+                    '<a class="page-link" href="#" data-page="' + (currentPage + 1) + '">下一页</a></li>';
+
+                $('#pagination ul').html(html);
+                $('#pagination').show();
+
+                $('.page-link').on('click', function(e) {
+                    e.preventDefault();
+                    var page = $(this).data('page');
+                    if (page && page >= 1 && page <= totalPages && page !== currentPage) {
+                        loadUsers(page);
+                    }
+                });
+            }
+
+            // 创建用户
+            $('#createUserBtn').on('click', function() {
+                $('#createUserModal').modal('show');
+            });
+
+            $('#confirmCreate').on('click', function() {
+                var username = $('#newUsername').val().trim();
+                var password = $('#newPassword').val();
+                var nickname = $('#newNickname').val().trim();
+                var role = $('#newRole').val();
+                var email = $('#newEmail').val().trim();
+                var phone = $('#newPhone').val().trim();
+
+                if (!username || !password || !nickname) {
+                    TeamMatch.util.showToast('请填写必填项', 'error');
+                    return;
+                }
+
+                var data = {
+                    username: username,
+                    password: password,
+                    nickname: nickname,
+                    role: role
+                };
+                if (email) data.email = email;
+                if (phone) data.phone = phone;
+
+                TeamMatch.adminApi.createUser(data).then(function(res) {
+                    if (res.code === 200) {
+                        $('#createUserModal').modal('hide');
+                        $('#createUserForm')[0].reset();
+                        TeamMatch.util.showToast('用户创建成功', 'success');
+                        loadUsers(1);
+                        loadStats();
+                    } else {
+                        TeamMatch.util.showToast(res.message || '创建失败', 'error');
+                    }
+                });
+            });
+
+            // 编辑用户
+            $('#confirmEdit').on('click', function() {
+                var uid = parseInt($('#editUid').val());
+                var nickname = $('#editNickname2').val().trim();
+                var email = $('#editEmail2').val().trim();
+                var phone = $('#editPhone2').val().trim();
+                var role = $('#editRole2').val();
+
+                var data = { uid: uid };
+                if (nickname) data.nickname = nickname;
+                if (email) data.email = email;
+                if (phone) data.phone = phone;
+                data.role = role;
+
+                TeamMatch.adminApi.updateUser(data).then(function(res) {
+                    if (res.code === 200) {
+                        $('#editUserModal').modal('hide');
+                        TeamMatch.util.showToast('用户更新成功', 'success');
+                        loadUsers(currentPage);
+                    } else {
+                        TeamMatch.util.showToast(res.message || '更新失败', 'error');
+                    }
+                });
+            });
+
+            // 搜索
+            $('#searchBtn').on('click', function() {
+                loadUsers(1);
+            });
+
+            $('#searchInput').on('keypress', function(e) {
+                if (e.which === 13) {
+                    loadUsers(1);
+                }
+            });
+
+            // 筛选变化
+            $('#roleFilter, #statusFilter').on('change', function() {
+                loadUsers(1);
+            });
+
+            // 初始化
+            loadStats();
+            loadUsers(1);
+        });
+    </script>
+</body>
+</html>

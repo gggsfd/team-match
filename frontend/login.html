@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 - TeamMatch</title>
+<link rel="stylesheet" href="lib/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="auth-container">
+  <div class="card">
+    <div class="card-header bg-primary text-white text-center py-3">
+      <h4 class="mb-0">TeamMatch 登录</h4>
+    </div>
+    <div class="card-body px-4 py-4">
+      <div class="mb-3">
+        <a href="index.html" class="btn btn-outline-secondary btn-sm">&larr; 返回首页</a>
+      </div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>学号</label>
+          <input type="text" class="form-control" id="username" placeholder="请输入学号" required autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>密码</label>
+          <input type="password" class="form-control" id="password" placeholder="请输入密码" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block mt-3">登录</button>
+      </form>
+      <p class="text-center mt-3 mb-0"><a href="register.html">还没有账号？立即注册</a></p>
+      <p class="text-center mt-2 mb-0 small text-muted">测试账号: 2024001 / 123456</p>
+    </div>
+  </div>
+</div>
+
+<script src="lib/jquery.min.js"></script>
+<script src="js/api.js"></script>
+<script>
+$('#loginForm').on('submit', async function(e) {
+  e.preventDefault();
+  const btn = $(this).find('button');
+  btn.prop('disabled', true).text('登录中...');
+
+  try {
+    const res = await TeamMatch.userApi.login({
+      username: $('#username').val().trim(),
+      password: $('#password').val()
+    });
+    if (res.code === 200) {
+      TeamMatch.util.saveUser(res.data);
+      TeamMatch.util.showToast('登录成功！', 'success');
+      setTimeout(() => { window.location.href = 'index.html'; }, 500);
+    } else {
+      TeamMatch.util.showToast(res.message, 'error');
+    }
+  } catch (err) {
+    TeamMatch.util.showToast('网络错误，请重试', 'error');
+  }
+  btn.prop('disabled', false).text('登录');
+});
+</script>
+</body>
+</html>

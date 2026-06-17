@@ -16,7 +16,8 @@ class Auth
         }
         return [
             'uid'      => $_SESSION['uid'],
-            'username' => $_SESSION['username'] ?? ''
+            'username' => $_SESSION['username'] ?? '',
+            'role'     => $_SESSION['role'] ?? 'member'
         ];
     }
 
@@ -73,5 +74,15 @@ class Auth
             exit;
         }
         return $user;
+    }
+
+    /**
+     * 校验当前用户是否为管理员
+     * @return bool
+     */
+    public static function isAdmin()
+    {
+        $user = self::requireLogin();
+        return ($user['role'] ?? '') === 'admin';
     }
 }

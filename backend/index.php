@@ -41,6 +41,8 @@ $routes = [
     '/api/projects'      => 'api/project/list.php',
     // 推荐
     '/api/recommendations' => 'api/recommendation/list.php',
+    // 管理员
+    '/api/admin/users'     => 'api/admin/users.php',
 ];
 
 if (isset($routes[$route])) {

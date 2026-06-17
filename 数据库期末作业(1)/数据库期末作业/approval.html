@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamMatch - 审批中心</title>
+    <link rel="stylesheet" href="lib/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container mt-4">
+        <!-- 面包屑 -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="index.html">首页</a></li>
+                <li class="breadcrumb-item"><a href="#" id="projectLink">项目详情</a></li>
+                <li class="breadcrumb-item active">审批中心</li>
+            </ol>
+        </nav>
+
+        <h3 class="mb-4">入组申请审批</h3>
+
+        <div id="loadingState" class="loading-spinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">加载中...</span>
+            </div>
+        </div>
+
+        <div id="contentArea" style="display:none;">
+            <div id="noPermission" class="alert alert-danger" style="display:none;">
+                <strong>无权限！</strong> 仅项目组长可查看申请列表。
+            </div>
+
+            <div id="applicationList"></div>
+
+            <div id="emptyState" class="empty-state" style="display:none;">
+                <div class="empty-icon">&#128230;</div>
+                <h4>暂无待处理申请</h4>
+                <p>当前没有入组申请需要审批</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/jquery.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        $(function() {
+            TeamMatch.util.initNavbar('');
+
+            if (!TeamMatch.util.requireLogin()) return;
+
+            var pid = TeamMatch.util.getQueryParam('pid');
+            var projectData = null;
+
+            if (!pid) {
+                TeamMatch.util.showToast('项目ID无效', 'error');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // 先加载项目详情，确认权限
+            function checkPermission() {
+                TeamMatch.projectApi.getDetail(pid).then(function(res) {
+                    if (res.code === 200 && res.data) {
+                        projectData = res.data;
+                        var user = TeamMatch.util.getUser();
+
+                        // 检查是否是组长
+                        if (!user || !res.data.creator || res.data.creator.uid !== user.uid) {
+                            $('#loadingState').hide();
+                            $('#contentArea').show();
+                            $('#noPermission').show();
+                            return;
+                        }
+
+                        // 是组长，加载申请列表
+                        $('#projectLink').attr('href', 'project.html?pid=' + pid);
+                        loadApplications();
+                    } else {
+                        TeamMatch.util.showToast('项目不存在', 'error');
+                        window.location.href = 'index.html';
+                    }
+                }).catch(function() {
+                    $('#loadingState').hide();
+                    TeamMatch.util.showToast('加载失败', 'error');
+                });
+            }
+
+            // 加载申请列表
+            function loadApplications() {
+                TeamMatch.projectApi.getApplications(pid).then(function(res) {
+                    $('#loadingState').hide();
+                    $('#contentArea').show();
+
+                    if (res.code === 200 && res.data && res.data.length > 0) {
+                        renderApplications(res.data);
+                    } else {
+                        $('#emptyState').show();
+                    }
+                }).catch(function() {
+                    $('#loadingState').hide();
+                    $('#contentArea').show();
+                    $('#emptyState').show();
+                });
+            }
+
+            // 渲染申请列表
+            function renderApplications(applications) {
+                var html = '';
+                applications.forEach(function(app) {
+                    var initial = app.nickname ? app.nickname.charAt(0) : '?';
+
+                    // 申请人技能
+                    var skillsHtml = '';
+                    if (app.skills && app.skills.length > 0) {
+                        app.skills.forEach(function(s) {
+                            skillsHtml += '<span class="badge badge-info mr-1">' + s.sname +
+                                ' <span class="star-rating">' + TeamMatch.util.renderStars(s.proficiency) + '</span></span>';
+                        });
+                    }
+
+                    html += '<div class="application-card">' +
+                        '<div class="applicant-info">' +
+                        '<div class="avatar-circle avatar-circle-sm">' + initial + '</div>' +
+                        '<div class="applicant-name">' + app.nickname + '</div>' +
+                        '</div>' +
+                        '<div class="applicant-message">' + (app.message || '无留言') + '</div>' +
+                        '<div class="applicant-skills">' + skillsHtml + '</div>' +
+                        '<div class="d-flex justify-content-between align-items-center">' +
+                        '<small class="text-muted">申请时间: ' + TeamMatch.util.formatDateTime(app.apply_time) + '</small>' +
+                        '<div class="action-buttons">' +
+                        '<button class="btn btn-success btn-sm approve-btn" data-aid="' + app.aid + '">通过</button>' +
+                        '<button class="btn btn-danger btn-sm reject-btn" data-aid="' + app.aid + '">拒绝</button>' +
+                        '</div></div></div>';
+                });
+                $('#applicationList').html(html);
+
+                // 绑定通过事件
+                $('.approve-btn').on('click', function() {
+                    var aid = $(this).data('aid');
+                    if (confirm('确定要通过该申请吗？')) {
+                        handleApplication(aid, 'accept');
+                    }
+                });
+
+                // 绑定拒绝事件
+                $('.reject-btn').on('click', function() {
+                    var aid = $(this).data('aid');
+                    if (confirm('确定要拒绝该申请吗？')) {
+                        handleApplication(aid, 'reject');
+                    }
+                });
+            }
+
+            // 处理申请
+            function handleApplication(aid, action) {
+                TeamMatch.applicationApi.handle(aid, action).then(function(res) {
+                    if (res.code === 200) {
+                        var msg = action === 'accept' ? '申请已通过' : '申请已拒绝';
+                        TeamMatch.util.showToast(msg, 'success');
+
+                        // 如果通过且项目满员
+                        if (action === 'accept' && res.data && res.data.project_status_changed) {
+                            TeamMatch.util.showToast('项目已满员，状态已更新', 'info');
+                        }
+
+                        // 刷新列表
+                        setTimeout(function() {
+                            loadApplications();
+                        }, 500);
+                    } else {
+                        TeamMatch.util.showToast(res.message || '操作失败', 'error');
+                    }
+                }).catch(function() {
+                    TeamMatch.util.showToast('操作失败', 'error');
+                });
+            }
+
+            // 初始化
+            checkPermission();
+        });
+    </script>
+</body>
+</html>

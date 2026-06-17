@@ -1,0 +1,519 @@
+/**
+ * TeamMatch 全局样式
+ */
+
+/* ==================== 基础样式 ==================== */
+body {
+    background-color: #f5f6fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+}
+
+a {
+    text-decoration: none;
+    color: #4A90D9;
+}
+
+a:hover {
+    color: #357ABD;
+    text-decoration: none;
+}
+
+/* ==================== 导航栏 ==================== */
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+    color: rgba(255,255,255,0.8);
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+    color: #fff;
+}
+
+.navbar-dark .navbar-nav .active > .nav-link {
+    color: #fff;
+    font-weight: 500;
+}
+
+/* ==================== 卡片样式 ==================== */
+.card {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 20px;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.card-title {
+    font-weight: 600;
+    color: #333;
+}
+
+/* ==================== 登录/注册卡片 ==================== */
+.login-card {
+    max-width: 420px;
+    margin: 60px auto;
+    padding: 40px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.login-card .card-title {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 1.75rem;
+    color: #4A90D9;
+}
+
+/* ==================== 按钮样式 ==================== */
+.btn-primary {
+    background-color: #4A90D9;
+    border-color: #4A90D9;
+}
+
+.btn-primary:hover {
+    background-color: #357ABD;
+    border-color: #357ABD;
+}
+
+.btn-outline-primary {
+    color: #4A90D9;
+    border-color: #4A90D9;
+}
+
+.btn-outline-primary:hover {
+    background-color: #4A90D9;
+    border-color: #4A90D9;
+}
+
+/* ==================== Badge样式 ==================== */
+.badge-success {
+    background-color: #28a745 !important;
+}
+
+.badge-warning {
+    background-color: #ffc107 !important;
+    color: #333 !important;
+}
+
+.badge-danger {
+    background-color: #dc3545 !important;
+}
+
+.badge-primary {
+    background-color: #4A90D9 !important;
+}
+
+.badge-secondary {
+    background-color: #6c757d !important;
+}
+
+.badge-info {
+    background-color: #17a2b8 !important;
+}
+
+/* ==================== 项目卡片 ==================== */
+.project-card {
+    cursor: pointer;
+    height: 100%;
+}
+
+.project-card .card-body {
+    padding: 20px;
+}
+
+.project-card .project-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.project-card .project-meta {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 12px;
+}
+
+.project-card .skill-badges {
+    margin-bottom: 12px;
+}
+
+.project-card .skill-badges .badge {
+    margin-right: 5px;
+    margin-bottom: 5px;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+}
+
+.project-card .project-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+/* ==================== 筛选区 ==================== */
+.filter-bar {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* ==================== 分页 ==================== */
+.pagination .page-link {
+    color: #4A90D9;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #4A90D9;
+    border-color: #4A90D9;
+}
+
+/* ==================== 空状态 ==================== */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.empty-state .empty-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    color: #ddd;
+}
+
+/* ==================== 加载中 ==================== */
+.loading-spinner {
+    text-align: center;
+    padding: 40px;
+}
+
+/* ==================== Toast提示 ==================== */
+.toast-alert {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.95rem;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* ==================== 头像 ==================== */
+.avatar-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #4A90D9;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.avatar-circle-lg {
+    width: 80px;
+    height: 80px;
+    font-size: 2rem;
+}
+
+.avatar-circle-sm {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+}
+
+/* ==================== 成员列表 ==================== */
+.member-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.member-item:last-child {
+    border-bottom: none;
+}
+
+.member-info {
+    margin-left: 12px;
+    flex: 1;
+}
+
+.member-name {
+    font-weight: 500;
+    color: #333;
+}
+
+.member-role {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+/* ==================== 时间线（进度看板） ==================== */
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #ddd;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 24px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 4px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: #ddd;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #ddd;
+}
+
+.timeline-item.completed::before {
+    background-color: #28a745;
+    box-shadow: 0 0 0 2px #28a745;
+}
+
+.timeline-item.completed .timeline-title {
+    text-decoration: line-through;
+    color: #999;
+}
+
+.timeline-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.timeline-desc {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.timeline-meta {
+    font-size: 0.8rem;
+    color: #999;
+}
+
+/* ==================== 统计卡片（管理后台） ==================== */
+.stats-card {
+    text-align: center;
+    padding: 24px;
+}
+
+.stats-card .stats-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #4A90D9;
+    margin-bottom: 8px;
+}
+
+.stats-card .stats-label {
+    font-size: 0.95rem;
+    color: #666;
+}
+
+/* ==================== 匹配度展示 ==================== */
+.match-rate {
+    text-align: center;
+    padding: 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    color: #fff;
+    margin-bottom: 16px;
+}
+
+.match-rate .match-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.match-rate .match-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* ==================== 个人中心 ==================== */
+.profile-sidebar {
+    text-align: center;
+    padding: 30px;
+}
+
+.profile-sidebar .avatar-circle {
+    margin: 0 auto 16px;
+}
+
+.profile-sidebar .profile-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.profile-sidebar .profile-username {
+    color: #888;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+.profile-sidebar .profile-meta {
+    font-size: 0.85rem;
+    color: #666;
+    line-height: 2;
+}
+
+/* ==================== 星星评分 ==================== */
+.star-rating {
+    color: #ffc107;
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+}
+
+/* ==================== 申请卡片 ==================== */
+.application-card {
+    border-left: 4px solid #ffc107;
+    padding: 16px;
+    background: #fff;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.application-card .applicant-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.application-card .applicant-name {
+    font-weight: 600;
+    margin-left: 12px;
+}
+
+.application-card .applicant-message {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.application-card .applicant-skills {
+    margin-bottom: 12px;
+}
+
+.application-card .action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+/* ==================== 表格 ==================== */
+.table thead th {
+    background-color: #f8f9fa;
+    border-top: none;
+    font-weight: 600;
+    color: #555;
+}
+
+/* ==================== 标签页 ==================== */
+.nav-tabs .nav-link {
+    color: #666;
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+    color: #4A90D9;
+    font-weight: 600;
+}
+
+/* ==================== Modal ==================== */
+.modal-header {
+    background-color: #f8f9fa;
+}
+
+.modal-title {
+    font-weight: 600;
+}
+
+/* ==================== 面包屑 ==================== */
+.breadcrumb {
+    background: none;
+    padding: 0;
+    margin-bottom: 20px;
+}
+
+.breadcrumb-item a {
+    color: #4A90D9;
+}
+
+.breadcrumb-item.active {
+    color: #666;
+}
+
+/* ==================== 响应式调整 ==================== */
+@media (max-width: 768px) {
+    .login-card {
+        margin: 20px auto;
+        padding: 24px;
+    }
+
+    .project-card .project-title {
+        font-size: 1rem;
+    }
+
+    .stats-card .stats-number {
+        font-size: 2rem;
+    }
+
+    .match-rate .match-number {
+        font-size: 2rem;
+    }
+}

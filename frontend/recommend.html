@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能推荐 - TeamMatch</title>
+<link rel="stylesheet" href="lib/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary"><div class="container">
+  <a class="navbar-brand" href="index.html">TeamMatch</a>
+  <ul class="navbar-nav mr-auto">
+    <li class="nav-item"><a class="nav-link" href="index.html">首页</a></li>
+    <li class="nav-item active"><a class="nav-link" href="recommend.html">智能推荐</a></li>
+    <li class="nav-item"><a class="nav-link" href="publish.html">发布项目</a></li>
+  </ul>
+  <span id="nav-user-info"><a class="btn btn-outline-light btn-sm" href="login.html">登录</a></span>
+</div></nav>
+
+<div class="container mt-4">
+  <div class="alert alert-info">
+    <strong>智能推荐</strong> ——系统根据你的技能标签与项目需求技能的匹配度，为你推荐最适合的项目。匹配度越高，表示项目越需要你的技能。  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <select class="form-control" id="courseFilter">
+        <option value="">全部课程</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="loading" class="text-center py-5" style="display:none">
+    <div class="spinner-border text-primary"></div><p class="mt-2">正在分析你的技能，匹配最佳项目..</p>
+  </div>
+
+  <div id="emptyState" class="empty-state" style="display:none">
+    <div style="font-size:3rem">🤔</div>
+    <p>暂未找到匹配的项目</p>
+    <p class="text-muted">试试<a href="profile.html">完善个人技能标签</a>，或等待更多项目发布</p>
+  </div>
+
+  <div class="row" id="recommendList"></div>
+</div>
+
+<script src="lib/jquery.min.js"></script>
+<script src="js/api.js"></script>
+<script>
+var user = TeamMatch.util.getUser();
+if (!user) { location.href = 'login.html'; }
+else {
+  $('#nav-user-info').html('<span class="navbar-text mr-3 text-white">' + user.nickname + '</span>' +
+    (user.role === 'admin' ? '<a class="btn btn-outline-warning btn-sm mr-2" href="admin.html">管理后台</a>' : '') +
+    '<a class="btn btn-outline-light btn-sm mr-2" href="profile.html">个人中心</a>' +
+    '<button class="btn btn-outline-danger btn-sm" onclick="TeamMatch.util.logout()">退出</button>');
+}
+
+$(async function() { await loadCourses(); await loadRecommendations(); });
+
+async function loadCourses() {
+  try {
+    var res = await TeamMatch.courseApi.getList();
+    if (res.code === 200 && res.data) {
+      res.data.forEach(function(c) {
+        $('#courseFilter').append('<option value="' + c.cid + '">' + c.cname + '</option>');
+      });
+    }
+  } catch (e) {}
+}
+
+async function loadRecommendations() {
+  $('#loading').show(); $('#recommendList').html(''); $('#emptyState').hide();
+  var cid = $('#courseFilter').val() || null;
+  try {
+    var res = await TeamMatch.recommendApi.getList(cid);
+    $('#loading').hide();
+    if (res.code === 200 && res.data && res.data.length > 0) {
+      renderRecommendations(res.data);
+    } else {
+      $('#emptyState').show();
+    }
+  } catch (e) {
+    $('#loading').hide();
+    $('#recommendList').html('<div class="col-12 text-center py-5 text-muted"><div style="font-size:2.5rem">⚠️</div><div class="mb-2">' + (e.message || '加载失败') + '</div><button class="btn btn-outline-primary btn-sm" onclick="loadRecommendations()">重新加载</button></div>');
+  }
+}
+
+function renderRecommendations(list) {
+  var html = '';
+  list.forEach(function(item) {
+    var rate = item.match_rate || 0;
+    var rateClass = rate >= 70 ? 'match-high' : rate >= 40 ? 'match-mid' : 'match-low';
+
+    var matchedHtml = (item.matched_skills || []).map(function(s) { return '<span class="skill-tag skill-matched">' + s + '</span>'; }).join('');
+    var unmatchedHtml = (item.unmatched_skills || []).map(function(s) { return '<span class="skill-tag skill-unmatched">' + s + '</span>'; }).join('');
+
+    html += '<div class="col-lg-6 mb-3"><div class="card">' +
+      '<div class="card-body">' +
+      '<div class="d-flex justify-content-between align-items-start">' +
+      '<div class="flex-grow-1">' +
+      '<h5 class="card-title"><a href="project.html?pid=' + item.pid + '" class="text-dark">' + item.pname + '</a></h5>' +
+      '<p class="text-muted small">' + (item.description || '').substring(0, 50) + '</p>' +
+      '</div>' +
+      '<div class="match-circle ' + rateClass + ' ml-3">' + rate + '%</div>' +
+      '</div>' +
+      '<div class="mt-2"><small class="text-muted">匹配技能</small><br>' + (matchedHtml || '<span class="text-muted">-</span>') + '</div>' +
+      '<div class="mt-1"><small class="text-muted">还欠缺</small><br>' + (unmatchedHtml || '<span class="text-muted">无</span>') + '</div>' +
+      '<div class="d-flex justify-content-between mt-2 small text-muted">' +
+      '<span>👤 ' + (item.current_members || 0) + '/' + (item.max_members || 0) + '</span>' +
+      '<span>' + ((item.course || {}).cname || '') + '</span>' +
+      '<span>组长: ' + ((item.creator || {}).nickname || '') + '</span>' +
+      '</div></div></div></div>';
+  });
+  $('#recommendList').html(html);
+}
+
+$('#courseFilter').on('change', function() { loadRecommendations(); });
+</script>
+</body>
+</html>

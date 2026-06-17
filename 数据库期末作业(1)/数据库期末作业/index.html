@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamMatch - 项目广场</title>
+    <link rel="stylesheet" href="lib/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container mt-4">
+        <!-- 筛选区 -->
+        <div class="filter-bar">
+            <div class="row">
+                <div class="col-md-3">
+                    <select class="form-control" id="courseFilter">
+                        <option value="">全部课程</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-control" id="statusFilter">
+                        <option value="">全部状态</option>
+                        <option value="0">招募中</option>
+                        <option value="1">已满</option>
+                        <option value="2">进行中</option>
+                        <option value="3">已结束</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <input type="text" class="form-control" id="keywordInput" placeholder="搜索项目名称...">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary btn-block" id="searchBtn">搜索</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 项目列表 -->
+        <div id="projectList" class="row">
+            <!-- 动态加载 -->
+        </div>
+
+        <!-- 空状态 -->
+        <div id="emptyState" class="empty-state" style="display:none;">
+            <div class="empty-icon">&#128218;</div>
+            <h4>暂无项目</h4>
+            <p>还没有符合条件的项目，快去发布一个吧！</p>
+        </div>
+
+        <!-- 加载中 -->
+        <div id="loadingState" class="loading-spinner" style="display:none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">加载中...</span>
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        <nav id="pagination" class="mt-4" style="display:none;">
+            <ul class="pagination justify-content-center">
+                <!-- 动态加载 -->
+            </ul>
+        </nav>
+    </div>
+
+    <script src="lib/jquery.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        $(function() {
+            TeamMatch.util.initNavbar('index');
+
+            var currentPage = 1;
+            var pageSize = 9;
+            var totalPages = 1;
+
+            // 加载课程列表
+            function loadCourses() {
+                TeamMatch.courseApi.getList().then(function(res) {
+                    if (res.code === 200 && res.data) {
+                        var html = '<option value="">全部课程</option>';
+                        res.data.forEach(function(course) {
+                            html += '<option value="' + course.cid + '">' + course.cname + '</option>';
+                        });
+                        $('#courseFilter').html(html);
+                    }
+                });
+            }
+
+            // 加载项目列表
+            function loadProjects(page) {
+                page = page || 1;
+                currentPage = page;
+
+                var params = {
+                    page: page,
+                    page_size: pageSize
+                };
+
+                var cid = $('#courseFilter').val();
+                var status = $('#statusFilter').val();
+                var keyword = $('#keywordInput').val().trim();
+
+                if (cid) params.cid = cid;
+                if (status !== '') params.status = status;
+                if (keyword) params.keyword = keyword;
+
+                $('#loadingState').show();
+                $('#projectList').hide();
+                $('#emptyState').hide();
+                $('#pagination').hide();
+
+                TeamMatch.projectApi.getList(params).then(function(res) {
+                    $('#loadingState').hide();
+
+                    if (res.code === 200 && res.data && res.data.list && res.data.list.length > 0) {
+                        renderProjects(res.data.list);
+                        totalPages = Math.ceil(res.data.total / pageSize);
+                        renderPagination();
+                        $('#projectList').show();
+                        $('#pagination').show();
+                    } else {
+                        $('#emptyState').show();
+                    }
+                }).catch(function() {
+                    $('#loadingState').hide();
+                    $('#emptyState').show();
+                });
+            }
+
+            // 渲染项目卡片
+            function renderProjects(projects) {
+                var html = '';
+                projects.forEach(function(p) {
+                    var statusInfo = TeamMatch.util.projectStatusMap[p.status] || { text: '未知', class: 'badge-secondary' };
+                    var skillsHtml = '';
+                    if (p.skills && p.skills.length > 0) {
+                        p.skills.forEach(function(skill) {
+                            skillsHtml += '<span class="badge badge-info">' + skill + '</span> ';
+                        });
+                    }
+
+                    html += '<div class="col-md-4 mb-4">' +
+                        '<div class="card project-card" data-pid="' + p.pid + '">' +
+                        '<div class="card-body">' +
+                        '<div class="d-flex justify-content-between align-items-start mb-2">' +
+                        '<span class="badge ' + statusInfo.class + '">' + statusInfo.text + '</span>' +
+                        '<small class="text-muted">' + p.current_members + '/' + p.max_members + '人</small>' +
+                        '</div>' +
+                        '<h5 class="project-title">' + p.pname + '</h5>' +
+                        '<div class="project-meta">' +
+                        '<span class="badge badge-secondary">' + (p.course_cname || '未分类') + '</span>' +
+                        '</div>' +
+                        '<div class="skill-badges">' + skillsHtml + '</div>' +
+                        '<div class="project-footer">' +
+                        '<span>&#128100; ' + (p.creator_nickname || '未知') + '</span>' +
+                        '<span>&#128197; ' + TeamMatch.util.formatDate(p.deadline) + '</span>' +
+                        '</div>' +
+                        '</div></div></div>';
+                });
+                $('#projectList').html(html);
+
+                // 绑定点击事件
+                $('.project-card').on('click', function() {
+                    var pid = $(this).data('pid');
+                    window.location.href = 'project.html?pid=' + pid;
+                });
+            }
+
+            // 渲染分页
+            function renderPagination() {
+                if (totalPages <= 1) {
+                    $('#pagination').hide();
+                    return;
+                }
+
+                var html = '';
+                // 上一页
+                html += '<li class="page-item ' + (currentPage === 1 ? 'disabled' : '') + '">' +
+                    '<a class="page-link" href="#" data-page="' + (currentPage - 1) + '">上一页</a></li>';
+
+                // 页码
+                for (var i = 1; i <= totalPages; i++) {
+                    if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                        html += '<li class="page-item ' + (i === currentPage ? 'active' : '') + '">' +
+                            '<a class="page-link" href="#" data-page="' + i + '">' + i + '</a></li>';
+                    } else if (i === currentPage - 2 || i === currentPage + 2) {
+                        html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                    }
+                }
+
+                // 下一页
+                html += '<li class="page-item ' + (currentPage === totalPages ? 'disabled' : '') + '">' +
+                    '<a class="page-link" href="#" data-page="' + (currentPage + 1) + '">下一页</a></li>';
+
+                $('#pagination ul').html(html);
+
+                // 绑定分页点击
+                $('.page-link').on('click', function(e) {
+                    e.preventDefault();
+                    var page = $(this).data('page');
+                    if (page && page >= 1 && page <= totalPages && page !== currentPage) {
+                        loadProjects(page);
+                    }
+                });
+            }
+
+            // 搜索按钮
+            $('#searchBtn').on('click', function() {
+                loadProjects(1);
+            });
+
+            // 回车搜索
+            $('#keywordInput').on('keypress', function(e) {
+                if (e.which === 13) {
+                    loadProjects(1);
+                }
+            });
+
+            // 筛选变化
+            $('#courseFilter, #statusFilter').on('change', function() {
+                loadProjects(1);
+            });
+
+            // 初始化
+            loadCourses();
+            loadProjects(1);
+        });
+    </script>
+</body>
+</html>

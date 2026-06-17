@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamMatch - 项目详情</title>
+    <link rel="stylesheet" href="lib/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container mt-4">
+        <!-- 面包屑 -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="index.html">首页</a></li>
+                <li class="breadcrumb-item active">项目详情</li>
+            </ol>
+        </nav>
+
+        <div id="loadingState" class="loading-spinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">加载中...</span>
+            </div>
+        </div>
+
+        <div id="projectContent" style="display:none;">
+            <div class="row">
+                <!-- 左侧：项目信息 -->
+                <div class="col-lg-8">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h2 id="projectName" class="mb-2"></h2>
+                                    <div id="projectMeta"></div>
+                                </div>
+                                <span id="projectStatus" class="badge"></span>
+                            </div>
+                            <hr>
+                            <h5>项目描述</h5>
+                            <p id="projectDesc" class="text-muted"></p>
+
+                            <h5 class="mt-4">所需技能</h5>
+                            <div id="requiredSkills"></div>
+                        </div>
+                    </div>
+
+                    <!-- 成员列表 -->
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">项目成员</h5>
+                            <div id="memberList"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：操作区 -->
+                <div class="col-lg-4">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">操作</h5>
+                            <div id="actionArea"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">项目信息</h5>
+                            <ul class="list-unstyled mb-0" id="projectInfo">
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 申请Modal -->
+        <div class="modal fade" id="applyModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">申请入组</h5>
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="applyForm">
+                            <div class="form-group">
+                                <label for="applyMessage">申请留言</label>
+                                <textarea class="form-control" id="applyMessage" rows="4" placeholder="介绍一下自己，说说为什么想加入这个项目..."></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" id="submitApply">提交申请</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/jquery.min.js"></script>
+    <script src="lib/bootstrap.min.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        $(function() {
+            TeamMatch.util.initNavbar('');
+
+            var pid = TeamMatch.util.getQueryParam('pid');
+            var projectData = null;
+
+            if (!pid) {
+                TeamMatch.util.showToast('项目ID无效', 'error');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            function loadProject() {
+                TeamMatch.projectApi.getDetail(pid).then(function(res) {
+                    $('#loadingState').hide();
+
+                    if (res.code === 200 && res.data) {
+                        projectData = res.data;
+                        renderProject(res.data);
+                        $('#projectContent').show();
+                    } else {
+                        TeamMatch.util.showToast(res.message || '项目不存在', 'error');
+                        window.location.href = 'index.html';
+                    }
+                }).catch(function() {
+                    $('#loadingState').hide();
+                    TeamMatch.util.showToast('加载失败', 'error');
+                });
+            }
+
+            function renderProject(data) {
+                var statusInfo = TeamMatch.util.projectStatusMap[data.status] || { text: '未知', class: 'badge-secondary' };
+
+                // 项目名称
+                $('#projectName').text(data.pname);
+
+                // 元信息
+                var metaHtml = '<span class="badge badge-secondary">' + (data.course ? data.course.cname : '未分类') + '</span> ' +
+                    '<span class="text-muted ml-2">&#128100; ' + (data.creator ? data.creator.nickname : '未知') + '</span>';
+                $('#projectMeta').html(metaHtml);
+
+                // 状态
+                $('#projectStatus').text(statusInfo.text).addClass(statusInfo.class);
+
+                // 描述
+                $('#projectDesc').text(data.description || '暂无描述');
+
+                // 所需技能
+                var skillsHtml = '';
+                if (data.required_skills && data.required_skills.length > 0) {
+                    data.required_skills.forEach(function(s) {
+                        skillsHtml += '<span class="badge badge-info mr-2 mb-2">' + s.sname + ' (需' + s.required_count + '人)</span>';
+                    });
+                } else {
+                    skillsHtml = '<span class="text-muted">未指定技能要求</span>';
+                }
+                $('#requiredSkills').html(skillsHtml);
+
+                // 成员列表
+                var membersHtml = '';
+                if (data.members && data.members.length > 0) {
+                    data.members.forEach(function(m) {
+                        var initial = m.nickname ? m.nickname.charAt(0) : '?';
+                        var roleBadge = m.role === 'leader' ?
+                            '<span class="badge badge-primary">组长</span>' :
+                            '<span class="badge badge-secondary">组员</span>';
+                        membersHtml += '<div class="member-item">' +
+                            '<div class="avatar-circle avatar-circle-sm">' + initial + '</div>' +
+                            '<div class="member-info">' +
+                            '<div class="member-name">' + m.nickname + ' ' + roleBadge + '</div>' +
+                            '<div class="member-role">加入时间: ' + TeamMatch.util.formatDate(m.join_time) + '</div>' +
+                            '</div></div>';
+                    });
+                } else {
+                    membersHtml = '<p class="text-muted">暂无成员</p>';
+                }
+                $('#memberList').html(membersHtml);
+
+                // 项目信息侧边栏
+                var infoHtml = '<li class="mb-2"><strong>最大人数:</strong> ' + data.max_members + '人</li>' +
+                    '<li class="mb-2"><strong>当前人数:</strong> ' + data.current_members + '人</li>' +
+                    '<li class="mb-2"><strong>截止日期:</strong> ' + TeamMatch.util.formatDate(data.deadline) + '</li>' +
+                    '<li><strong>创建时间:</strong> ' + TeamMatch.util.formatDate(data.created_at) + '</li>';
+                $('#projectInfo').html(infoHtml);
+
+                // 操作区
+                renderActionArea(data);
+            }
+
+            function renderActionArea(data) {
+                var user = TeamMatch.util.getUser();
+                var html = '';
+
+                if (!user) {
+                    html = '<p class="text-muted">登录后可申请加入该项目</p>' +
+                        '<a href="login.html" class="btn btn-primary btn-block">去登录</a>';
+                } else if (data.creator && data.creator.uid === user.uid) {
+                    // 是创建者（组长）
+                    html = '<a href="approval.html?pid=' + pid + '" class="btn btn-primary btn-block mb-2">管理申请</a>' +
+                        '<a href="progress.html?pid=' + pid + '" class="btn btn-outline-primary btn-block">进度看板</a>';
+                } else {
+                    var appStatus = data.my_application_status;
+                    if (appStatus === null) {
+                        html = '<button class="btn btn-primary btn-block" id="applyBtn">申请入组</button>';
+                    } else if (appStatus === 0) {
+                        html = '<button class="btn btn-secondary btn-block" disabled>审核中</button>';
+                    } else if (appStatus === 1) {
+                        html = '<button class="btn btn-success btn-block" disabled>已加入</button>' +
+                            '<a href="progress.html?pid=' + pid + '" class="btn btn-outline-primary btn-block mt-2">查看进度</a>';
+                    } else if (appStatus === 2) {
+                        html = '<button class="btn btn-danger btn-block" disabled>申请被拒绝</button>' +
+                            '<button class="btn btn-outline-primary btn-block mt-2" id="reapplyBtn">重新申请</button>';
+                    } else {
+                        html = '<button class="btn btn-primary btn-block" id="applyBtn">申请入组</button>';
+                    }
+                }
+
+                $('#actionArea').html(html);
+
+                // 绑定申请事件
+                $('#applyBtn, #reapplyBtn').on('click', function() {
+                    $('#applyModal').modal('show');
+                });
+            }
+
+            // 提交申请
+            $('#submitApply').on('click', function() {
+                var message = $('#applyMessage').val().trim();
+                TeamMatch.projectApi.apply(pid, message).then(function(res) {
+                    if (res.code === 200) {
+                        $('#applyModal').modal('hide');
+                        TeamMatch.util.showToast('申请已提交，请等待组长审核', 'success');
+                        // 刷新页面
+                        setTimeout(function() {
+                            loadProject();
+                        }, 500);
+                    } else {
+                        TeamMatch.util.showToast(res.message || '申请失败', 'error');
+                    }
+                }).catch(function() {
+                    TeamMatch.util.showToast('申请失败', 'error');
+                });
+            });
+
+            // 加载项目
+            loadProject();
+        });
+    </script>
+</body>
+</html>
