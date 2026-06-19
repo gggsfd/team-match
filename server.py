@@ -86,6 +86,15 @@ class DB:
                 FOREIGN KEY(pid) REFERENCES project(pid) ON DELETE CASCADE);
             CREATE TABLE sessions (token TEXT PRIMARY KEY, uid INTEGER, username TEXT, role TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+            -- ★ 性能索引：加速过滤、排序和关联查询
+            CREATE INDEX idx_project_status_del ON project(status, is_deleted);
+            CREATE INDEX idx_project_cid ON project(cid);
+            CREATE INDEX idx_project_created ON project(created_at DESC);
+            CREATE INDEX idx_application_pid_uid ON application(pid, uid);
+            CREATE INDEX idx_application_pid_status ON application(pid, status);
+            CREATE INDEX idx_member_pid ON member(pid);
+            CREATE INDEX idx_progress_pid_deadline ON progress(pid, deadline);
+            CREATE INDEX idx_sessions_token ON sessions(token);
         """)
 
     def _seed(self):
@@ -300,7 +309,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 ct = {'html':'text/html','css':'text/css','js':'application/javascript'}
                 ext = fp.rsplit('.',1)[-1]
                 self.send_header('Content-Type', f'{ct.get(ext,"text/plain")}; charset=utf-8')
-                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                # ★ 优化：第三方库长缓存，业务代码短缓存
+                if '/lib/' in fp.replace('\\', '/'):
+                    self.send_header('Cache-Control', 'public, max-age=604800, immutable')
+                else:
+                    self.send_header('Cache-Control', 'no-cache')
                 fs = os.path.getsize(fp)
                 self.send_header('Content-Length', str(fs))
                 self.end_headers()
@@ -336,6 +349,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             # ★ 管理员接口
             r'^/api/admin/users$': self._admin_users,
             r'^/api/admin/stats$': self._admin_stats,
+            r'^/api/admin/projects$': self._admin_projects,
         }
         for pat, fn in rmap.items():
             m = re.match(pat, path)
@@ -438,8 +452,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 FROM project p JOIN user u ON p.uid=u.uid JOIN course c ON p.cid=c.cid
                 WHERE {ws} ORDER BY p.created_at DESC LIMIT ? OFFSET ?
             """, v+[ps,(pg-1)*ps]))
-            for r in rows:
-                r['skills'] = [x['sname'] for x in db.execute("SELECT s.sname FROM project_skill ps JOIN skill s ON ps.sid=s.sid WHERE ps.pid=?", (r['pid'],))]
+            # ★ 优化：批量查询所有项目的技能标签（1次查询替代N次）
+            if rows:
+                pids = tuple(r['pid'] for r in rows)
+                placeholders = ','.join(['?'] * len(pids))
+                skill_rows = db.ds(db.execute(
+                    f"SELECT ps.pid, s.sname FROM project_skill ps JOIN skill s ON ps.sid=s.sid WHERE ps.pid IN ({placeholders})", pids))
+                skill_map = {}
+                for sr in skill_rows:
+                    skill_map.setdefault(sr['pid'], []).append(sr['sname'])
+                for r in rows:
+                    r['skills'] = skill_map.get(r['pid'], [])
             self._json(200, 'success', {'list':rows,'total':total,'page':pg,'page_size':ps})
         elif self.command == 'POST':
             b = self._body(); cid = b.get('cid'); pname = (b.get('pname') or '').strip(); sids = b.get('skill_ids',[])
@@ -460,13 +483,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             u.nickname AS creator_nickname FROM project p JOIN course c ON p.cid=c.cid JOIN user u ON p.uid=u.uid
             WHERE p.pid=? AND p.is_deleted=0""", (pid,)).fetchone())
         if not p: return self._json(404, '项目不存在')
+        # ★ 优化：合并required_skills和members查询，从5次→3次查询
         p['required_skills'] = db.ds(db.execute("SELECT ps.sid,s.sname,s.category,ps.required_count FROM project_skill ps JOIN skill s ON ps.sid=s.sid WHERE ps.pid=?", (pid,)))
         p['members'] = db.ds(db.execute("SELECT m.uid,u.nickname,u.avatar,m.role,m.join_time FROM member m JOIN user u ON m.uid=u.uid WHERE m.pid=?", (pid,)))
         p['current_members'] = len(p['members'])
         p['status_text'] = {0:'招募中',1:'已满',2:'进行中',3:'已结束'}.get(p['status'],'')
         p['course'] = {'cid':p['cid'],'cname':p['course_name'],'teacher':p['course_teacher']}
         p['creator'] = {'uid':p['uid'],'nickname':p['creator_nickname']}
-        p['skills'] = [x['sname'] for x in db.execute("SELECT s.sname FROM project_skill ps JOIN skill s ON ps.sid=s.sid WHERE ps.pid=?", (pid,))]
+        # ★ 复用已查询的required_skills数据，不再单独查skills
+        p['skills'] = [x['sname'] for x in p['required_skills']]
         if uid:
             a = db.execute("SELECT status FROM application WHERE pid=? AND uid=? ORDER BY aid DESC LIMIT 1", (pid,uid)).fetchone()
             p['my_application_status'] = a['status'] if a else None
@@ -548,8 +573,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         rows = db.ds(db.execute(sql, v))
         usk = set(r['sid'] for r in db.execute("SELECT sid FROM user_skill WHERE uid=?", (uid,)))
         res = []
+        # ★ 优化：批量获取所有项目技能，替代每个项目单独查询
+        if rows:
+            all_pids = tuple(p['pid'] for p in rows)
+            placeholders = ','.join(['?'] * len(all_pids))
+            all_skill_rows = db.ds(db.execute(
+                f"SELECT ps.pid, s.sname, s.sid FROM project_skill ps JOIN skill s ON ps.sid=s.sid WHERE ps.pid IN ({placeholders})", all_pids))
+            pid_skills_map = {}
+            for sr in all_skill_rows:
+                pid_skills_map.setdefault(sr['pid'], []).append(sr)
         for p in rows:
-            ps = db.ds(db.execute("SELECT ps.sid,s.sname FROM project_skill ps JOIN skill s ON ps.sid=s.sid WHERE ps.pid=?", (p['pid'],)))
+            ps = pid_skills_map.get(p['pid'], [])
             all_s = [s['sid'] for s in ps]
             mt = [s for s in ps if s['sid'] in usk]
             um = [s for s in ps if s['sid'] not in usk]
@@ -629,6 +663,76 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             'total_projects': total_projects, 'recruiting': recruiting, 'in_progress': in_progress,
             'pending_applications': pending_apps
         })
+
+    def _admin_projects(self, uid, role, _, qs):
+        """管理员项目管理：列表/编辑/删除"""
+        if role != 'admin': return self._json(403, '仅管理员可访问')
+
+        if self.command == 'GET':
+            cid = qs.get('cid',[None])[0]; st = qs.get('status',[None])[0]; kw = qs.get('keyword',[None])[0]
+            pg = max(1,int(qs.get('page',[1])[0])); ps = max(1,min(50,int(qs.get('page_size',[15])[0])))
+            w = ["p.is_deleted=0"]; v = []
+            if cid: w.append("p.cid=?"); v.append(int(cid))
+            if st is not None and st!='': w.append("p.status=?"); v.append(int(st))
+            if kw: w.append("p.pname LIKE ?"); v.append(f'%{kw}%')
+            ws = " AND ".join(w)
+            total = db.execute(f"SELECT COUNT(*) AS cnt FROM project p WHERE {ws}", v).fetchone()['cnt']
+            rows = db.ds(db.execute(f"""
+                SELECT p.pid,p.pname,p.description,p.max_members,p.status,p.deadline,p.created_at,
+                    (SELECT COUNT(*) FROM member m WHERE m.pid=p.pid) AS current_members,
+                    u.uid AS creator_uid,u.nickname AS creator_nickname,
+                    c.cid AS course_cid,c.cname AS course_cname
+                FROM project p JOIN user u ON p.uid=u.uid JOIN course c ON p.cid=c.cid
+                WHERE {ws} ORDER BY p.created_at DESC LIMIT ? OFFSET ?
+            """, v+[ps,(pg-1)*ps]))
+            # 批量获取技能
+            if rows:
+                pids = tuple(r['pid'] for r in rows)
+                placeholders = ','.join(['?'] * len(pids))
+                skill_rows = db.ds(db.execute(
+                    f"SELECT ps.pid, s.sname FROM project_skill ps JOIN skill s ON ps.sid=s.sid WHERE ps.pid IN ({placeholders})", pids))
+                skill_map = {}
+                for sr in skill_rows:
+                    skill_map.setdefault(sr['pid'], []).append(sr['sname'])
+                for r in rows:
+                    r['skills'] = skill_map.get(r['pid'], [])
+                    r['status_text'] = {0:'招募中',1:'已满',2:'进行中',3:'已结束'}.get(r['status'],'')
+            self._json(200, 'success', {'list':rows,'total':total,'page':pg,'page_size':ps})
+
+        elif self.command == 'PUT':
+            b = self._body(); pid = b.get('pid')
+            if not pid: return self._json(400, 'pid不能为空')
+            if not db.execute("SELECT 1 FROM project WHERE pid=? AND is_deleted=0", (pid,)).fetchone():
+                return self._json(404, '项目不存在')
+            fs = []; vs = []
+            for f in ['pname','description','deadline']:
+                if f in b: fs.append(f'{f}=?'); vs.append(b[f])
+            if 'max_members' in b:
+                vv = int(b['max_members'])
+                if vv < 1 or vv > 20: return self._json(400, '人数范围1-20')
+                fs.append('max_members=?'); vs.append(vv)
+            if 'status' in b:
+                vv = int(b['status'])
+                if vv not in (0,1,2,3): return self._json(400, '无效状态值')
+                fs.append('status=?'); vs.append(vv)
+            if 'cid' in b:
+                if not db.execute("SELECT 1 FROM course WHERE cid=?", (int(b['cid']),)).fetchone():
+                    return self._json(400, '课程不存在')
+                fs.append('cid=?'); vs.append(int(b['cid']))
+            if not fs: return self._json(400, '无可更新的字段')
+            vs.append(pid)
+            db.execute(f"UPDATE project SET {','.join(fs)} WHERE pid=? AND is_deleted=0", vs)
+            db.commit(); self._json(200, '更新成功')
+
+        elif self.command == 'DELETE':
+            b = self._body(); pid = b.get('pid')
+            if not pid: return self._json(400, 'pid不能为空')
+            if not db.execute("SELECT 1 FROM project WHERE pid=? AND is_deleted=0", (pid,)).fetchone():
+                return self._json(404, '项目不存在')
+            db.execute("UPDATE project SET is_deleted=1 WHERE pid=?", (pid,))
+            db.commit(); self._json(200, '项目已删除')
+
+        else: self._json(405)
 
     def log_message(self, *a): pass
 

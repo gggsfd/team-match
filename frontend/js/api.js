@@ -128,6 +128,10 @@
     createUser: function(data) { return window.TeamMatch.api.post('/api/admin/users', data); },
     updateUser: function(data) { return window.TeamMatch.api.put('/api/admin/users', data); },
     getStats: function() { return window.TeamMatch.api.get('/api/admin/stats'); },
+    // ★ 项目管理
+    getProjects: function(params) { return window.TeamMatch.api.get('/api/admin/projects', params); },
+    updateProject: function(data) { return window.TeamMatch.api.put('/api/admin/projects', data); },
+    deleteProject: function(pid) { return window.TeamMatch.api.del('/api/admin/projects', { pid: pid }); },
   };
 
   // ============ 通用工具 ============
