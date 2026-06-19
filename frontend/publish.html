@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>发布项目 - TeamMatch</title>
+<link rel="stylesheet" href="lib/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary"><div class="container">
+  <a class="navbar-brand" href="index.html">TeamMatch</a>
+  <div class="ml-auto" id="nav-user-info">
+    <a class="btn btn-outline-light btn-sm" href="login.html">登录</a>
+  </div>
+</div></nav>
+
+<div class="container mt-4">
+  <div class="row"><div class="col-md-8 offset-md-2">
+    <div class="card">
+      <div class="card-header bg-primary text-white"><h4 class="mb-0">发布新项目</h4></div>
+      <div class="card-body">
+        <form id="publishForm">
+          <div class="form-group">
+            <label>所属课程<span class="text-danger">*</span></label>
+            <select class="form-control" id="courseSelect" required>
+              <option value="">请选择课程</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>项目名称 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="pname" placeholder="项目名称" required>
+          </div>
+          <div class="form-group">
+            <label>项目描述</label>
+            <textarea class="form-control" id="description" rows="3" placeholder="详细描述项目内容与目标"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>最大人数（含组长）</label>
+              <input type="number" class="form-control" id="maxMembers" value="4" min="2" max="10">
+            </div>
+            <div class="form-group col-md-6">
+              <label>截止日期</label>
+              <input type="date" class="form-control" id="deadline">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>需求技能<span class="text-danger">*</span>（至少选择一项）</label>
+            <div id="skillList" class="d-flex flex-wrap"></div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">发布项目</button>
+        </form>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<script src="lib/jquery.min.js"></script>
+<script src="js/api.js"></script>
+<script>
+var user = TeamMatch.util.getUser();
+if (!user) { location.href = 'login.html'; }
+else {
+  $('#nav-user-info').html('<span class="navbar-text mr-3 text-white">' + user.nickname + '</span>' +
+    '<a class="btn btn-outline-light btn-sm" href="index.html">返回首页</a>');
+}
+
+$(async function() {
+  try {
+    var res = await TeamMatch.courseApi.getList();
+    if (res.code === 200 && res.data) {
+      res.data.forEach(function(c) {
+        $('#courseSelect').append('<option value="' + c.cid + '">' + c.cname + ' - ' + (c.teacher || '') + '</option>');
+      });
+    }
+    // 加载技能列表（从课程接口间接获取，这里模拟）    var skillRes = await TeamMatch.userApi.getSkills();
+    // 用已知的8个预置技能渲染（也可从user/profile 获取全部技能标签）
+    var allSkills = [
+      {sid:1,sname:'前端开发',cat:'技术'},{sid:2,sname:'后端开发',cat:'技术'},
+      {sid:3,sname:'数据库设计',cat:'技术'},{sid:4,sname:'UI设计',cat:'设计'},
+      {sid:5,sname:'测试调试',cat:'技术'},{sid:6,sname:'文档编写',cat:'管理'},
+      {sid:7,sname:'答辩演讲',cat:'管理'},{sid:8,sname:'算法实现',cat:'技术'}
+    ];
+    var skillHtml = '';
+    allSkills.forEach(function(s) {
+      var catClass = {'技术':'tech','设计':'design','管理':'mgmt','其他':'other'}[s.cat] || 'other';
+      skillHtml += '<label class="mr-2 mb-2"><input type="checkbox" name="skill" value="' + s.sid + '"> ' +
+        '<span class="skill-tag skill-' + catClass + '">' + s.sname + '</span></label>';
+    });
+    $('#skillList').html(skillHtml);
+  } catch (e) { console.error(e); }
+});
+
+$('#publishForm').on('submit', async function(e) {
+  e.preventDefault();
+  var cid = $('#courseSelect').val();
+  var pname = $('#pname').val().trim();
+  var sids = $('input[name="skill"]:checked').map(function() { return parseInt(this.value); }).get();
+
+  if (!cid) { TeamMatch.util.showToast('请选择课程', 'error'); return; }
+  if (!pname) { TeamMatch.util.showToast('请填写项目名称', 'error'); return; }
+  if (sids.length === 0) { TeamMatch.util.showToast('至少选择一项需求技能', 'error'); return; }
+
+  var btn = $(this).find('button');
+  btn.prop('disabled', true).text('发布中..');
+
+  try {
+    var data = { cid: parseInt(cid), pname: pname, skill_ids: sids };
+    var desc = $('#description').val().trim();
+    if (desc) data.description = desc;
+    data.max_members = parseInt($('#maxMembers').val()) || 4;
+    var deadline = $('#deadline').val();
+    if (deadline) data.deadline = deadline;
+
+    var res = await TeamMatch.projectApi.create(data);
+    if (res.code === 200) {
+      TeamMatch.util.showToast('项目发布成功！', 'success');
+      setTimeout(function() { location.href = 'project.html?pid=' + res.data.pid; }, 800);
+    } else {
+      TeamMatch.util.showToast(res.message, 'error');
+    }
+  } catch (err) { TeamMatch.util.showToast('发布失败，请重试', 'error'); }
+  btn.prop('disabled', false).text('发布项目');
+});
+</script>
+</body>
+</html>

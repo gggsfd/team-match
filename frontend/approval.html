@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>组队审批 - TeamMatch</title>
+<link rel="stylesheet" href="lib/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-warning"><div class="container">
+  <a class="navbar-brand" href="index.html">TeamMatch</a>
+  <span class="navbar-text text-white ml-3">组长审批中心</span>
+  <div class="ml-auto" id="nav-user-info">
+    <a class="btn btn-outline-light btn-sm" href="login.html">登录</a>
+  </div>
+</div></nav>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4>待处理申请<small class="text-muted" id="projectTitle"></small></h4>
+    <div>
+      <a class="btn btn-outline-secondary btn-sm mr-2" id="backLink" href="project.html">返回项目</a>
+    </div>
+  </div>
+  <div id="loading" class="text-center py-5"><div class="spinner-border text-warning"></div><p>加载中..</p></div>
+  <div id="emptyState" class="empty-state" style="display:none">
+    <div style="font-size:3rem">📋</div><p>暂无待处理的申请</p>
+  </div>
+  <div id="appList"></div>
+</div>
+
+<script src="lib/jquery.min.js"></script>
+<script src="js/api.js"></script>
+<script>
+(function() {
+  'use strict';
+  if (typeof $ === 'undefined' || typeof window.TeamMatch === 'undefined') {
+    document.getElementById('loading').innerHTML = '<p class="text-danger">页面资源加载失败，请刷新重试</p><button class="btn btn-primary btn-sm mt-2" onclick="location.reload()">刷新</button>';
+    return;
+  }
+
+  var user = TeamMatch.util.getUser();
+  if (!user) { location.href = 'login.html'; return; }
+  var pid = new URLSearchParams(location.search).get('pid');
+  if (!pid) { document.getElementById('loading').innerHTML = '<p class="text-danger">缺少项目ID</p>'; return; }
+
+  $('#nav-user-info').html('<span class="navbar-text mr-3 text-white">' + user.nickname + '</span>' +
+    '<a class="btn btn-outline-light btn-sm" href="index.html">首页</a>');
+  $('#backLink').attr('href', 'project.html?pid=' + pid);
+
+  loadApplications();
+
+  async function loadApplications() {
+    try {
+      var res = await TeamMatch.projectApi.getApplications(pid);
+      $('#loading').hide();
+      if (res.code !== 200) {
+        if (res.code === 403) { $('#appList').html('<p class="text-danger">仅项目组长可查看申请列表</p>'); return; }
+        if (res.code === 401) { location.href = 'login.html'; return; }
+        $('#appList').html('<p class="text-danger">加载失败: ' + (res.message || '') + '</p>');
+        return;
+      }
+      if (!res.data || res.data.length === 0) { $('#emptyState').show(); return; }
+      renderApplications(res.data);
+    } catch (e) {
+      console.error(e);
+      $('#loading').html('<p class="text-danger">' + (e.message || '加载失败') + '</p><button class="btn btn-outline-primary btn-sm mt-2" onclick="location.reload()">刷新重试</button>');
+    }
+  }
+
+function renderApplications(list) {
+  var html = '';
+  list.forEach(function(a) {
+    var skillsHtml = (a.skills || []).map(function(s) {
+      return '<span class="skill-tag skill-tech">' + s.sname + ' ' + s.proficiency + '⭐</span>';
+    }).join('');
+
+    html += '<div class="card mb-3" id="app-' + a.aid + '"><div class="card-body">' +
+      '<div class="d-flex justify-content-between align-items-start">' +
+      '<div><h5>' + a.nickname + '</h5>' +
+      '<p class="text-muted">' + (a.message || '（无留言）') + '</p>' +
+      '<div class="mb-2">' + skillsHtml + '</div>' +
+      '<small class="text-muted">申请时间: ' + a.apply_time + '</small></div>' +
+      '<div class="text-right">' +
+      '<button class="btn btn-success btn-sm mb-2 btn-accept" data-aid="' + a.aid + '">通过</button><br>' +
+      '<button class="btn btn-danger btn-sm btn-reject" data-aid="' + a.aid + '">拒绝</button></div>' +
+      '</div></div></div>';
+  });
+  $('#appList').html(html);
+}
+
+$(document).on('click', '.btn-accept', async function() {
+  await handleAction($(this).data('aid'), 'accept');
+});
+$(document).on('click', '.btn-reject', async function() {
+  await handleAction($(this).data('aid'), 'reject');
+});
+
+async function handleAction(aid, action) {
+  var btn = $('[data-aid="' + aid + '"]');
+  btn.prop('disabled', true);
+  try {
+    var res = await TeamMatch.applicationApi.handle(aid, action);
+    if (res.code === 200) {
+      TeamMatch.util.showToast(res.message, 'success');
+      if (action === 'accept' && res.data && res.data.project_status_changed) {
+        TeamMatch.util.showToast('项目已满员，状态自动切换为【已满】', 'info');
+      }
+      $('#app-' + aid).fadeOut(300, function() { $(this).remove(); });
+    } else {
+      TeamMatch.util.showToast(res.message, 'error');
+      btn.prop('disabled', false);
+    }
+  } catch (e) { TeamMatch.util.showToast('操作失败', 'error'); btn.prop('disabled', false); }
+}
+})();
+</script>
+</body>
+</html>

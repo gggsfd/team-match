@@ -16,7 +16,7 @@ class User
     public function findByUsername($username)
     {
         $stmt = $this->db->prepare(
-            "SELECT uid, username, password, nickname, email, phone, avatar, credit_score, created_at
+            "SELECT uid, username, password, nickname, email, phone, avatar, credit_score, role, is_active, created_at
              FROM user WHERE username = :username AND is_deleted = 0"
         );
         $stmt->execute([':username' => $username]);
@@ -32,7 +32,7 @@ class User
     public function findByUid($uid)
     {
         $stmt = $this->db->prepare(
-            "SELECT uid, username, nickname, email, phone, avatar, credit_score, created_at
+            "SELECT uid, username, nickname, email, phone, avatar, credit_score, role, is_active, created_at
              FROM user WHERE uid = :uid AND is_deleted = 0"
         );
         $stmt->execute([':uid' => $uid]);

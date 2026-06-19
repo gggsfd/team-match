@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台 · TeamMatch</title>
+<link rel="stylesheet" href="lib/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+<style>
+.sidebar { background: #1e2a3a; min-height: 100vh; padding: 20px 0; }
+.sidebar .nav-link { color: #a0b4cc; padding: 12px 24px; transition: .2s; cursor: pointer; }
+.sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,.08); }
+.sidebar .brand { color: #fff; padding: 8px 24px 24px; font-size: 1.2rem; font-weight:700; border-bottom: 1px solid rgba(255,255,255,.1); margin-bottom: 8px; }
+.stat-card { border-radius: 12px; padding: 20px; color: #fff; }
+.stat-card .num { font-size: 2rem; font-weight: 700; }
+.stat-card .label { font-size: .85rem; opacity: .85; }
+.bg-gradient-primary { background: linear-gradient(135deg, #4e73df, #224abe); }
+.bg-gradient-success { background: linear-gradient(135deg, #1cc88a, #13855c); }
+.bg-gradient-warning { background: linear-gradient(135deg, #f6c23e, #dda20a); }
+.bg-gradient-info { background: linear-gradient(135deg, #36b9cc, #258391); }
+.bg-gradient-danger { background: linear-gradient(135deg, #e74a3b, #be2617); }
+.table tr.disabled-row { opacity: .5; background: #fff3f3; }
+.panel-hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="container-fluid">
+  <div class="row">
+    <!-- 侧边栏 -->
+    <div class="col-md-2 sidebar d-none d-md-block px-0">
+      <div class="brand">TeamMatch<br><small class="text-muted">管理员后台</small></div>
+      <ul class="nav flex-column" id="sideNav">
+        <li class="nav-item"><a class="nav-link active" data-tab="users">👥 用户管理</a></li>
+        <li class="nav-item"><a class="nav-link" data-tab="projects">📋 项目管理</a></li>
+        <li class="nav-item"><hr style="border-color:rgba(255,255,255,.1);margin:8px 0"></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">← 返回首页</a></li>
+        <li class="nav-item"><button class="nav-link btn btn-link text-left" onclick="TeamMatch.util.logout()">退出登录</button></li>
+      </ul>
+    </div>
+
+    <!-- 主区域 -->
+    <div class="col-md-10 py-4">
+      <h4 class="mb-1"><span id="pageTitle">用户管理</span> <small class="text-muted" id="loginInfo"></small></h4>
+      <hr>
+
+      <!-- 统计卡片（两个Tab共用） -->
+      <div class="row mb-4" id="statsRow">
+        <div class="col-md-3 mb-3"><div class="stat-card bg-gradient-primary"><div class="num" id="statUsers">-</div><div class="label">总用户数</div></div></div>
+        <div class="col-md-3 mb-3"><div class="stat-card bg-gradient-success"><div class="num" id="statActive">-</div><div class="label">活跃用户</div></div></div>
+        <div class="col-md-3 mb-3"><div class="stat-card bg-gradient-warning"><div class="num" id="statProjects">-</div><div class="label">总项目数</div></div></div>
+        <div class="col-md-3 mb-3"><div class="stat-card bg-gradient-info"><div class="num" id="statApps">-</div><div class="label">待处理申请</div></div></div>
+      </div>
+
+      <!-- ========== 用户管理面板 ========== -->
+      <div id="userPanel">
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-3 mb-2">
+                <select class="form-control form-control-sm" id="roleFilter">
+                  <option value="">全部角色</option><option value="admin">管理员</option><option value="member">普通用户</option>
+                </select>
+              </div>
+              <div class="col-md-3 mb-2">
+                <select class="form-control form-control-sm" id="activeFilter">
+                  <option value="">全部状态</option><option value="1">启用</option><option value="0">禁用</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-2">
+                <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="搜索学号或昵称..">
+              </div>
+              <div class="col-md-2 mb-2">
+                <button class="btn btn-primary btn-sm btn-block" onclick="$('#userModal').modal('show')">+ 新建用户</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-striped mb-0">
+                <thead class="thead-dark">
+                  <tr><th>UID</th><th>学号</th><th>昵称</th><th>邮箱</th><th>角色</th><th>状态</th><th>信用分</th><th>技能</th><th>项目</th><th>注册时间</th><th>操作</th></tr>
+                </thead>
+                <tbody id="userTbody"><tr><td colspan="11" class="text-center py-4"><div class="spinner-border text-primary"></div></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <nav class="mt-3" id="userPagination"></nav>
+      </div>
+
+      <!-- ========== 项目管理面板 ========== -->
+      <div id="projectPanel" class="panel-hidden">
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-3 mb-2">
+                <select class="form-control form-control-sm" id="projCourseFilter"><option value="">全部课程</option></select>
+              </div>
+              <div class="col-md-3 mb-2">
+                <select class="form-control form-control-sm" id="projStatusFilter">
+                  <option value="">全部状态</option><option value="0">招募中</option><option value="1">已满</option><option value="2">进行中</option><option value="3">已结束</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-2">
+                <input type="text" class="form-control form-control-sm" id="projSearchInput" placeholder="搜索项目名称..">
+              </div>
+              <div class="col-md-2 mb-2">
+                <button class="btn btn-outline-primary btn-sm btn-block" onclick="loadProjects()">刷新</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-striped mb-0">
+                <thead class="thead-dark">
+                  <tr><th>PID</th><th>项目名称</th><th>课程</th><th>组长</th><th>人数</th><th>状态</th><th>截止日</th><th>需求技能</th><th>创建时间</th><th>操作</th></tr>
+                </thead>
+                <tbody id="projectTbody"><tr><td colspan="10" class="text-center py-4"><div class="spinner-border text-primary"></div></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <nav class="mt-3" id="projPagination"></nav>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ====== 用户编辑弹窗 ====== -->
+<div class="modal fade" id="userModal">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header bg-primary text-white"><h5 class="modal-title" id="userModalTitle">新建用户</h5><button class="close text-white" data-dismiss="modal">&times;</button></div>
+    <div class="modal-body">
+      <form><input type="hidden" id="editUid">
+        <div class="form-row">
+          <div class="form-group col-6"><label>学号 *</label><input type="text" class="form-control" id="muUsername" required></div>
+          <div class="form-group col-6"><label>密码 *</label><input type="password" class="form-control" id="muPassword" placeholder="6-20位"></div>
+        </div>
+        <div class="form-group"><label>昵称 *</label><input type="text" class="form-control" id="muNickname" required></div>
+        <div class="form-row">
+          <div class="form-group col-6"><label>邮箱</label><input type="email" class="form-control" id="muEmail"></div>
+          <div class="form-group col-6"><label>手机</label><input type="text" class="form-control" id="muPhone"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-4"><label>角色</label><select class="form-control" id="muRole"><option value="member">普通用户</option><option value="admin">管理员</option></select></div>
+          <div class="form-group col-4"><label>信用分</label><input type="number" class="form-control" id="muCredit" value="100" min="0" max="200"></div>
+          <div class="form-group col-4"><label>状态</label><select class="form-control" id="muActive"><option value="1">启用</option><option value="0">禁用</option></select></div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-dismiss="modal">取消</button>
+      <button class="btn btn-primary" id="saveUserBtn">保存</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ====== 项目编辑弹窗 ====== -->
+<div class="modal fade" id="projectModal">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header bg-warning"><h5 class="modal-title" id="projModalTitle">编辑项目</h5><button class="close" data-dismiss="modal">&times;</button></div>
+    <div class="modal-body">
+      <form><input type="hidden" id="editPid">
+        <div class="form-row">
+          <div class="form-group col-8"><label>项目名称 *</label><input type="text" class="form-control" id="mpPname" required></div>
+          <div class="form-group col-4"><label>所属课程</label><select class="form-control" id="mpCid"></select></div>
+        </div>
+        <div class="form-group"><label>描述</label><textarea class="form-control" id="mpDesc" rows="2"></textarea></div>
+        <div class="form-row">
+          <div class="form-group col-3"><label>最大人数</label><input type="number" class="form-control" id="mpMaxMembers" min="1" max="20"></div>
+          <div class="form-group col-3"><label>状态</label><select class="form-control" id="mpStatus"><option value="0">招募中</option><option value="1">已满</option><option value="2">进行中</option><option value="3">已结束</option></select></div>
+          <div class="form-group col-3"><label>截止日期</label><input type="date" class="form-control" id="mpDeadline"></div>
+          <div class="form-group col-3"><label>当前人数</label><input type="text" class="form-control" id="mpCurrentMembers" disabled></div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger mr-auto" id="deleteProjBtn">删除项目</button>
+      <button class="btn btn-secondary" data-dismiss="modal">取消</button>
+      <button class="btn btn-warning" id="saveProjBtn">保存修改</button>
+    </div>
+  </div></div>
+</div>
+
+<script src="lib/jquery.min.js"></script>
+<script src="lib/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script>
+(function() {
+  'use strict';
+  if (typeof $ === 'undefined' || typeof window.TeamMatch === 'undefined') {
+    document.body.innerHTML = '<div style="text-align:center;padding:80px 20px;color:#999;"><h3>页面资源加载失败</h3><button onclick="location.reload()" style="padding:10px 24px;border-radius:6px;background:#4A90D9;color:#fff;border:none;cursor:pointer;">刷新页面</button></div>';
+    return;
+  }
+
+  var currentTab = 'users';
+  var userPage = 1, projPage = 1;
+
+  // ====== 初始化 ======
+  $(async function() {
+    var user = TeamMatch.util.getUser();
+    if (!user) { location.href = 'login.html'; return; }
+    if (user.role !== 'admin') { alert('仅管理员可访问此页面'); location.href = 'index.html'; return; }
+    $('#loginInfo').text('管理员 ' + user.nickname);
+
+    loadStats();
+    loadUsers();
+
+    // 用户筛选事件
+    $('#roleFilter,#activeFilter').on('change', function() { userPage=1; loadUsers(); });
+    $('#searchInput').on('input', function() { clearTimeout(this._t); this._t = setTimeout(function() { userPage=1; loadUsers(); }, 400); });
+
+    // 项目筛选事件
+    $('#projCourseFilter,#projStatusFilter').on('change', function() { projPage=1; loadProjects(); });
+    $('#projSearchInput').on('input', function() { clearTimeout(this._t2); this._t2 = setTimeout(function() { projPage=1; loadProjects(); }, 400); });
+  });
+
+  // ====== Tab 切换 ======
+  $('#sideNav').on('click', '[data-tab]', function(e) {
+    e.preventDefault();
+    var tab = $(this).data('tab');
+    if (tab === currentTab) return;
+    currentTab = tab;
+    $('#sideNav .nav-link').removeClass('active');
+    $(this).addClass('active');
+
+    if (tab === 'users') {
+      $('#pageTitle').text('用户管理');
+      $('#userPanel').show(); $('#projectPanel').hide();
+      if ($('#userTbody').children().length === 0) loadUsers();
+    } else {
+      $('#pageTitle').text('项目管理');
+      $('#userPanel').hide(); $('#projectPanel').show();
+      // 首次切换到项目管理时加载课程下拉和项目列表
+      if ($('#projectTbody').children().length === 1 && $('#projectTbody').find('.spinner-border').length > 0) {
+        loadCourses();
+        loadProjects();
+      }
+    }
+  });
+
+  // ==========================================
+  // 统计信息
+  // ==========================================
+  async function loadStats() {
+    try {
+      var r = await TeamMatch.adminApi.getStats();
+      if (r.code === 200 && r.data) {
+        var d = r.data;
+        $('#statUsers').text(d.total_users); $('#statActive').text(d.active_users);
+        $('#statProjects').text(d.total_projects); $('#statApps').text(d.pending_applications);
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  // ==========================================
+  // 用户管理 —— 加载/渲染/分页
+  // ==========================================
+  async function loadUsers() {
+    var params = { page: userPage, page_size: 15 };
+    var r = $('#roleFilter').val(), ia = $('#activeFilter').val(), kw = $('#searchInput').val().trim();
+    if (r) params.role = r; if (ia !== '') params.is_active = ia; if (kw) params.keyword = kw;
+
+    $('#userTbody').html('<tr><td colspan="11" class="text-center py-4"><div class="spinner-border text-primary"></div></td></tr>');
+    $('#userPagination').html('');
+
+    try {
+      var res = await TeamMatch.adminApi.getUsers(params);
+      if (res.code === 200 && res.data) {
+        renderUsers(res.data.list);
+        renderUserPagination(res.data.total, res.data.page, res.data.page_size);
+      } else {
+        showTbodyError('#userTbody', 11, res.message, 'loadUsers()');
+      }
+    } catch (e) {
+      console.error(e);
+      showTbodyError('#userTbody', 11, e.message, 'loadUsers()');
+    }
+  }
+
+  function renderUsers(list) {
+    var html = '';
+    list.forEach(function(u) {
+      var roleBadge = u.role === 'admin' ? 'badge-danger' : 'badge-secondary';
+      var roleText = u.role === 'admin' ? '管理员' : '普通用户';
+      var stBadge = u.is_active == 1 ? 'badge-success' : 'badge-danger';
+      var stText = u.is_active == 1 ? '启用' : '禁用';
+      var rowClass = u.is_active == 1 ? '' : 'disabled-row';
+      html += '<tr class="' + rowClass + '">' +
+        '<td>' + u.uid + '</td><td>' + u.username + '</td><td>' + u.nickname + '</td>' +
+        '<td>' + (u.email || '-') + '</td>' +
+        '<td><span class="badge ' + roleBadge + '">' + roleText + '</span></td>' +
+        '<td><span class="badge ' + stBadge + '">' + stText + '</span></td>' +
+        '<td>' + u.credit_score + '</td><td>' + (u.skill_count || 0) + '</td><td>' + (u.project_count || 0) + '</td>' +
+        '<td><small>' + (u.created_at || '').substring(0,10) + '</small></td>' +
+        '<td>' +
+          '<button class="btn btn-sm btn-outline-primary mr-1 edit-user-btn" data-user=\'' + JSON.stringify(u).replace(/'/g, '&#39;') + '\'>编辑</button>' +
+          '<button class="btn btn-sm btn-outline-' + (u.is_active == 1 ? 'danger' : 'success') + ' toggle-user-btn" data-uid="' + u.uid + '" data-active="' + u.is_active + '">' + (u.is_active == 1 ? '禁用' : '启用') + '</button>' +
+        '</td></tr>';
+    });
+    $('#userTbody').html(html);
+    bindUserEvents();
+  }
+
+  function bindUserEvents() {
+    $('.edit-user-btn').click(function() {
+      var u = $(this).data('user');
+      $('#editUid').val(u.uid);
+      $('#userModalTitle').text('编辑用户 #' + u.uid);
+      $('#muUsername').val(u.username).prop('disabled', true);
+      $('#muPassword').val('').prop('disabled', true).attr('placeholder', '留空则不修改密码');
+      $('#muNickname').val(u.nickname);
+      $('#muEmail').val(u.email || '');
+      $('#muPhone').val(u.phone || '');
+      $('#muRole').val(u.role);
+      $('#muCredit').val(u.credit_score);
+      $('#muActive').val(u.is_active);
+      $('#userModal').modal('show');
+    });
+
+    $('.toggle-user-btn').click(async function() {
+      var uid = $(this).data('uid');
+      var cur = $(this).data('active');
+      var newState = cur == 1 ? 0 : 1;
+      if (!confirm('确定要' + (newState ? '启用' : '禁用') + '该账号？')) return;
+      try {
+        var res = await TeamMatch.adminApi.updateUser({ uid: uid, is_active: newState });
+        if (res.code === 200) { TeamMatch.util.showToast('操作成功', 'success'); loadUsers(); loadStats(); }
+        else TeamMatch.util.showToast(res.message, 'error');
+      } catch(e) { TeamMatch.util.showToast('操作失败', 'error'); }
+    });
+  }
+
+  function renderUserPagination(total, page, ps) {
+    renderPagination('#userPagination', total, page, ps, function(p) { userPage = p; loadUsers(); });
+  }
+
+  // 用户保存
+  $('#saveUserBtn').click(async function() {
+    var uid = $('#editUid').val();
+    if (uid) {
+      var data = { uid: parseInt(uid), nickname: $('#muNickname').val().trim(), role: $('#muRole').val() };
+      data.email = $('#muEmail').val().trim(); data.phone = $('#muPhone').val().trim();
+      data.credit_score = parseInt($('#muCredit').val()) || 100;
+      data.is_active = parseInt($('#muActive').val());
+      if (data.credit_score < 0 || data.credit_score > 200) { TeamMatch.util.showToast('信用分范围0-200', 'error'); return; }
+      try {
+        var res = await TeamMatch.adminApi.updateUser(data);
+        if (res.code === 200) { TeamMatch.util.showToast('更新成功', 'success'); $('#userModal').modal('hide'); loadUsers(); loadStats(); }
+        else TeamMatch.util.showToast(res.message, 'error');
+      } catch(e) { TeamMatch.util.showToast('操作失败', 'error'); }
+    } else {
+      var un = $('#muUsername').val().trim(); var pw = $('#muPassword').val(); var nn = $('#muNickname').val().trim();
+      if (!un || !pw || !nn) { TeamMatch.util.showToast('学号、密码、昵称为必填', 'error'); return; }
+      if (pw.length < 6) { TeamMatch.util.showToast('密码至少6位', 'error'); return; }
+      var data = { username: un, password: pw, nickname: nn, role: $('#muRole').val() };
+      data.email = $('#muEmail').val().trim(); data.phone = $('#muPhone').val().trim();
+      data.credit_score = parseInt($('#muCredit').val()) || 100;
+      data.is_active = parseInt($('#muActive').val());
+      try {
+        var res = await TeamMatch.adminApi.createUser(data);
+        if (res.code === 200) { TeamMatch.util.showToast('用户创建成功', 'success'); $('#userModal').modal('hide'); loadUsers(); loadStats(); resetUserForm(); }
+        else TeamMatch.util.showToast(res.message, 'error');
+      } catch(e) { TeamMatch.util.showToast('操作失败', 'error'); }
+    }
+  });
+
+  $('#userModal').on('hidden.bs.modal', function() { resetUserForm(); });
+  function resetUserForm() {
+    $('#editUid').val(''); $('#userModalTitle').text('新建用户');
+    $('#muUsername').val('').prop('disabled', false);
+    $('#muPassword').val('').prop('disabled', false).attr('placeholder', '6-20位');
+    $('#muNickname').val(''); $('#muEmail').val(''); $('#muPhone').val('');
+    $('#muRole').val('member'); $('#muCredit').val(100); $('#muActive').val(1);
+  }
+
+  // ==========================================
+  // 项目管理 —— 加载/渲染/编辑/删除
+  // ==========================================
+  async function loadCourses() {
+    try {
+      var res = await TeamMatch.courseApi.getList();
+      if (res.code === 200 && res.data) {
+        var sel = $('#projCourseFilter');
+        sel.find('option:not(:first)').remove();
+        res.data.forEach(function(c) { sel.append('<option value="' + c.cid + '">' + c.cname + '</option>'); });
+        // 同时填充编辑弹窗的课程下拉
+        var mSel = $('#mpCid');
+        mSel.find('option').remove();
+        res.data.forEach(function(c) { mSel.append('<option value="' + c.cid + '">' + c.cname + '</option>'); });
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  async function loadProjects() {
+    var params = { page: projPage, page_size: 15 };
+    var cid = $('#projCourseFilter').val(), st = $('#projStatusFilter').val(), kw = $('#projSearchInput').val().trim();
+    if (cid) params.cid = cid;
+    if (st !== '') params.status = st;
+    if (kw) params.keyword = kw;
+
+    $('#projectTbody').html('<tr><td colspan="10" class="text-center py-4"><div class="spinner-border text-primary"></div></td></tr>');
+    $('#projPagination').html('');
+
+    try {
+      var res = await TeamMatch.adminApi.getProjects(params);
+      if (res.code === 200 && res.data) {
+        renderProjects(res.data.list);
+        renderPagination('#projPagination', res.data.total, res.data.page, res.data.page_size, function(p) { projPage = p; loadProjects(); });
+      } else {
+        showTbodyError('#projectTbody', 10, res.message, 'loadProjects()');
+      }
+    } catch (e) {
+      console.error(e);
+      showTbodyError('#projectTbody', 10, e.message, 'loadProjects()');
+    }
+  }
+
+  function renderProjects(list) {
+    var html = '';
+    var stMap = {0: '招募中', 1: '已满', 2: '进行中', 3: '已结束'};
+    var stBadge = {0: 'success', 1: 'warning', 2: 'primary', 3: 'secondary'};
+    list.forEach(function(p) {
+      var skillsHtml = (p.skills || []).map(function(s) { return '<span class="badge badge-info mr-1">' + s + '</span>'; }).join('');
+      html += '<tr>' +
+        '<td>' + p.pid + '</td>' +
+        '<td><strong>' + (p.pname || '') + '</strong></td>' +
+        '<td><small>' + (p.course_cname || '') + '</small></td>' +
+        '<td>' + (p.creator_nickname || '') + '</td>' +
+        '<td>' + (p.current_members || 0) + '/' + (p.max_members || 0) + '</td>' +
+        '<td><span class="badge badge-' + (stBadge[p.status] || 'secondary') + '">' + (stMap[p.status] || '') + '</span></td>' +
+        '<td><small>' + (p.deadline || '不限') + '</small></td>' +
+        '<td>' + (skillsHtml || '<span class="text-muted">-</span>') + '</td>' +
+        '<td><small>' + (p.created_at || '').substring(0,10) + '</small></td>' +
+        '<td>' +
+          '<button class="btn btn-sm btn-outline-warning edit-proj-btn" data-proj=\'' + JSON.stringify(p).replace(/'/g, '&#39;') + '\'>编辑</button>' +
+        '</td></tr>';
+    });
+    $('#projectTbody').html(html);
+
+    $('.edit-proj-btn').click(function() {
+      var p = $(this).data('proj');
+      $('#editPid').val(p.pid);
+      $('#projModalTitle').text('编辑项目 #' + p.pid + ' - ' + (p.pname || ''));
+      $('#mpPname').val(p.pname);
+      $('#mpCid').val(p.course_cid);
+      $('#mpDesc').val(p.description || '');
+      $('#mpMaxMembers').val(p.max_members);
+      $('#mpStatus').val(p.status);
+      $('#mpDeadline').val(p.deadline || '');
+      $('#mpCurrentMembers').val(p.current_members || 0);
+      $('#projectModal').modal('show');
+    });
+  }
+
+  // 保存项目修改
+  $('#saveProjBtn').click(async function() {
+    var pid = parseInt($('#editPid').val());
+    var pname = $('#mpPname').val().trim();
+    if (!pname) { TeamMatch.util.showToast('项目名称不能为空', 'error'); return; }
+    var data = { pid: pid, pname: pname, description: $('#mpDesc').val().trim() };
+    data.cid = parseInt($('#mpCid').val());
+    data.max_members = parseInt($('#mpMaxMembers').val()) || 4;
+    data.status = parseInt($('#mpStatus').val());
+    var dl = $('#mpDeadline').val();
+    if (dl) data.deadline = dl;
+    if (data.max_members < 1 || data.max_members > 20) { TeamMatch.util.showToast('人数范围1-20', 'error'); return; }
+
+    try {
+      var res = await TeamMatch.adminApi.updateProject(data);
+      if (res.code === 200) {
+        TeamMatch.util.showToast('项目更新成功', 'success');
+        $('#projectModal').modal('hide');
+        loadProjects(); loadStats();
+      } else {
+        TeamMatch.util.showToast(res.message, 'error');
+      }
+    } catch(e) { TeamMatch.util.showToast('操作失败', 'error'); }
+  });
+
+  // 删除项目
+  $('#deleteProjBtn').click(async function() {
+    var pid = parseInt($('#editPid').val());
+    var pname = $('#mpPname').val();
+    if (!confirm('确定要删除项目 #' + pid + '「' + pname + '」吗？\n\n此操作为软删除，项目及其关联数据将被标记为删除。')) return;
+    try {
+      var res = await TeamMatch.adminApi.deleteProject(pid);
+      if (res.code === 200) {
+        TeamMatch.util.showToast('项目已删除', 'success');
+        $('#projectModal').modal('hide');
+        loadProjects(); loadStats();
+      } else {
+        TeamMatch.util.showToast(res.message, 'error');
+      }
+    } catch(e) { TeamMatch.util.showToast('操作失败', 'error'); }
+  });
+
+  // ==========================================
+  // 通用工具函数
+  // ==========================================
+  function showTbodyError(sel, colspan, msg, retryFn) {
+    $(sel).html('<tr><td colspan="' + colspan + '" class="text-center py-4 text-muted">加载失败: ' + (msg || '未知错误') + ' <button class="btn btn-sm btn-outline-primary ml-2" onclick="' + retryFn + '">重试</button></td></tr>');
+  }
+
+  function renderPagination(container, total, page, ps, callback) {
+    var tp = Math.ceil(total / ps);
+    if (tp <= 1) { $(container).html(''); return; }
+    var h = '<ul class="pagination justify-content-center">';
+    h += '<li class="page-item' + (page<=1?' disabled':'') + '"><a class="page-link" href="#" data-p="' + (page-1) + '">上一页</a></li>';
+    for (var i=1; i<=tp; i++) h += '<li class="page-item' + (i===page?' active':'') + '"><a class="page-link" href="#" data-p="' + i + '">' + i + '</a></li>';
+    h += '<li class="page-item' + (page>=tp?' disabled':'') + '"><a class="page-link" href="#" data-p="' + (page+1) + '">下一页</a></li>';
+    h += '</ul>';
+    $(container).html(h);
+    $(container + ' .page-link').click(function(e) { e.preventDefault(); callback(parseInt($(this).data('p'))); window.scrollTo(0, 0); });
+  }
+})();
+</script>
+</body>
+</html>

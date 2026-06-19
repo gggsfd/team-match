@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人中心 - TeamMatch</title>
+<link rel="stylesheet" href="lib/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark"><div class="container">
+  <a class="navbar-brand" href="index.html">TeamMatch</a>
+  <ul class="navbar-nav mr-auto">
+    <li class="nav-item"><a class="nav-link" href="index.html">首页</a></li>
+    <li class="nav-item"><a class="nav-link" href="recommend.html">推荐</a></li>
+  </ul>
+  <span id="nav-user-info"><a class="btn btn-outline-light btn-sm" href="login.html">登录</a></span>
+</div></nav>
+
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-md-4">
+      <div class="card mb-3">
+        <div class="card-header">基本信息</div>
+        <div class="card-body" id="profileInfo">
+          <div class="text-center py-3"><div class="spinner-border"></div></div>
+        </div>
+      </div>
+      <div class="card mb-3">
+        <div class="card-header">修改资料</div>
+        <div class="card-body">
+          <form id="profileForm">
+            <div class="form-group"><label>昵称</label><input type="text" class="form-control" id="editNickname"></div>
+            <div class="form-group"><label>邮箱</label><input type="email" class="form-control" id="editEmail"></div>
+            <div class="form-group"><label>手机</label><input type="text" class="form-control" id="editPhone"></div>
+            <button type="submit" class="btn btn-primary btn-block">保存修改</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>我的技能标签</span>
+          <button class="btn btn-success btn-sm" onclick="$('#addSkillRow').toggle()">+ 添加技能</button>
+        </div>
+        <div class="card-body">
+          <div id="addSkillRow" style="display:none" class="mb-3 p-3 bg-light rounded">
+            <div class="form-row">
+              <div class="col-5">
+                <select class="form-control form-control-sm" id="skillSelect">
+                  <option value="">选择技能</option>
+                  <option value="1">前端开发</option><option value="2">后端开发</option>
+                  <option value="3">数据库设计</option><option value="4">UI设计</option>
+                  <option value="5">测试调试</option><option value="6">文档编写</option>
+                  <option value="7">答辩演讲</option><option value="8">算法实现</option>
+                </select>
+              </div>
+              <div class="col-3">
+                <select class="form-control form-control-sm" id="proficiencySelect">
+                  <option value="1">1星</option><option value="2">2星</option><option value="3" selected>3星</option>
+                  <option value="4">4星</option><option value="5">5星</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <button class="btn btn-sm btn-success" id="saveSkill">添加</button>
+              </div>
+            </div>
+          </div>
+          <div id="mySkills"><div class="text-muted">加载中..</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">我参与的项目</div>
+        <div class="card-body" id="myProjects"><div class="text-muted">加载中..</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="lib/jquery.min.js"></script>
+<script src="js/api.js"></script>
+<script>
+var user = TeamMatch.util.getUser();
+if (!user) { location.href = 'login.html'; }
+
+$('#nav-user-info').html('<span class="navbar-text mr-3 text-white">' + user.nickname + '</span>' +
+  (user.role === 'admin' ? '<a class="btn btn-outline-warning btn-sm mr-2" href="admin.html">管理后台</a>' : '') +
+  '<button class="btn btn-outline-danger btn-sm" onclick="TeamMatch.util.logout()">退出</button>');
+
+$(async function() {
+  try {
+    await loadProfile();
+    await loadSkills();
+  } catch (e) {
+    console.error('[TeamMatch] Profile init error:', e);
+  }
+});
+
+async function loadProfile() {
+  try {
+    var res = await TeamMatch.userApi.getProfile();
+    if (res.code === 200 && res.data) {
+      var d = res.data;
+      // 同步更新本地存储的用户信息
+      if (user) {
+        user.nickname = d.nickname;
+        user.credit_score = d.credit_score;
+        TeamMatch.util.saveUser(user);
+      }
+      var html = '<p><strong>学号:</strong> ' + d.username + '</p>' +
+        '<p><strong>昵称:</strong> ' + d.nickname + '</p>' +
+        '<p><strong>邮箱:</strong> ' + (d.email || '未填写') + '</p>' +
+        '<p><strong>手机:</strong> ' + (d.phone || '未填写') + '</p>' +
+        '<p><strong>信用分</strong> ' + d.credit_score + '</p>' +
+        '<p><strong>注册时间:</strong> ' + (d.created_at || '') + '</p>';
+      $('#profileInfo').html(html);
+      $('#editNickname').val(d.nickname);
+      $('#editEmail').val(d.email || '');
+      $('#editPhone').val(d.phone || '');
+
+      // 我参与的项目
+      var projHtml = '';
+      (d.projects || []).forEach(function(p) {
+        var stMap = {0: '招募中', 1: '已满', 2: '进行中', 3: '已结束'};
+        projHtml += '<a href="project.html?pid=' + p.pid + '" class="d-block py-1">' +
+          p.pname + ' <span class="badge badge-sm badge-info">' + (p.role === 'leader' ? '组长' : '组员') + '</span>' +
+          ' <small class="text-muted">' + (stMap[p.status] || '') + '</small></a>';
+      });
+      $('#myProjects').html(projHtml || '<span class="text-muted">暂无参与的项目</span>');
+    } else {
+      var errMsg = res.message || '未知错误';
+      $('#profileInfo').html('<div class="text-center text-muted">加载失败: ' + errMsg + '</div>');
+      $('#myProjects').html('<span class="text-muted">加载失败</span>');
+    }
+  } catch (e) {
+    console.error('[TeamMatch] Profile load error:', e);
+    var msg = e.message || '网络异常，请刷新重试';
+    $('#profileInfo').html('<div class="text-center text-muted">' + msg + '</div>');
+    $('#myProjects').html('<span class="text-muted">加载失败</span>');
+  }
+}
+
+async function loadSkills() {
+  try {
+    var res = await TeamMatch.userApi.getSkills();
+    if (res.code === 200) {
+      var html = '';
+      (res.data || []).forEach(function(s) {
+        html += '<span class="skill-tag skill-tech mr-1 mb-1">' + s.sname + ' ' + s.proficiency + '⭐' +
+          ' <a href="#" class="text-danger del-skill" data-sid="' + s.sid + '" style="font-size:12px">×</a></span>';
+      });
+      $('#mySkills').html(html || '<span class="text-muted">暂无技能标签，请添加</span>');
+    } else {
+      $('#mySkills').html('<span class="text-muted">技能加载失败: ' + (res.message || '') + '</span>');
+    }
+  } catch (e) {
+    console.error('[TeamMatch] Skills load error:', e);
+    $('#mySkills').html('<span class="text-muted">技能加载失败，请刷新重试</span>');
+  }
+}
+
+// 资料修改
+$('#profileForm').on('submit', async function(e) {
+  e.preventDefault();
+  var data = { nickname: $('#editNickname').val().trim() };
+  var email = $('#editEmail').val().trim();
+  var phone = $('#editPhone').val().trim();
+  if (email !== undefined) data.email = email;
+  if (phone !== undefined) data.phone = phone;
+  try {
+    var res = await TeamMatch.userApi.updateProfile(data);
+    if (res.code === 200) {
+      TeamMatch.util.showToast('资料更新成功', 'success');
+      user.nickname = data.nickname;
+      TeamMatch.util.saveUser(user);
+    } else { TeamMatch.util.showToast(res.message, 'error'); }
+  } catch (e) { TeamMatch.util.showToast('更新失败', 'error'); }
+});
+
+// 添加技能
+  $('#saveSkill').click(async function() {
+  var sid = parseInt($('#skillSelect').val());
+  var prof = parseInt($('#proficiencySelect').val());
+  if (!sid) { TeamMatch.util.showToast('请选择技能', 'error'); return; }
+  try {
+    var res = await TeamMatch.userApi.addSkill(sid, prof);
+    if (res.code === 200) {
+      TeamMatch.util.showToast('技能添加成功', 'success');
+      $('#addSkillRow').hide();
+      loadSkills();
+    } else { TeamMatch.util.showToast(res.message, 'error'); }
+  } catch (e) { TeamMatch.util.showToast('添加失败', 'error'); }
+});
+
+// 删除技能
+  $(document).on('click', '.del-skill', async function(e) {
+  e.preventDefault();
+  if (!confirm('确定删除该技能？')) return;
+  var sid = parseInt($(this).data('sid'));
+  try {
+    var res = await TeamMatch.userApi.removeSkill(sid);
+    if (res.code === 200) {
+      TeamMatch.util.showToast('技能已删除', 'success');
+      loadSkills();
+    } else { TeamMatch.util.showToast(res.message, 'error'); }
+  } catch (e) { TeamMatch.util.showToast('删除失败', 'error'); }
+});
+</script>
+</body>
+</html>

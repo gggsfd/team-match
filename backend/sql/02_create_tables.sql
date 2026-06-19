@@ -16,6 +16,8 @@ CREATE TABLE `user` (
     `phone`        VARCHAR(20)   DEFAULT NULL COMMENT '联系电话',
     `avatar`       VARCHAR(255)  DEFAULT NULL COMMENT '头像存储地址',
     `credit_score` INT           NOT NULL DEFAULT 100 COMMENT '用户信用分，默认100',
+    `role`        VARCHAR(20)   NOT NULL DEFAULT 'member' COMMENT '角色：admin管理员/leader组长/member普通用户',
+    `is_active`   TINYINT(1)    NOT NULL DEFAULT 1 COMMENT '账号状态：1启用/0禁用',
     `created_at`   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '账号注册时间',
     `updated_at`   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最近更新时间',
     `is_deleted`   TINYINT(1)    NOT NULL DEFAULT 0 COMMENT '软删除标识：0正常/1删除',

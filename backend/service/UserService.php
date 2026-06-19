@@ -59,6 +59,7 @@ class UserService
         }
         $_SESSION['uid'] = $user['uid'];
         $_SESSION['username'] = $user['username'];
+        $_SESSION['role'] = $user['role'] ?? 'member';
 
         unset($user['password']);
         return ['success' => true, 'message' => '登录成功', 'user' => $user];
