@@ -31,7 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     $wsql = implode(' AND ', $where);
 
-    $total = (int)$db->prepare("SELECT COUNT(*) AS cnt FROM user u WHERE {$wsql}")->execute($params)->fetch()['cnt'];
+    $countStmt = $db->prepare("SELECT COUNT(*) AS cnt FROM user u WHERE {$wsql}");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetch()['cnt'];
     $offset = ($page - 1) * $page_size;
     $stmt = $db->prepare("
         SELECT u.uid, u.username, u.nickname, u.email, u.phone, u.avatar,

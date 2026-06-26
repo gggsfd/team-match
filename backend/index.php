@@ -43,6 +43,8 @@ $routes = [
     '/api/recommendations' => 'api/recommendation/list.php',
     // 管理员
     '/api/admin/users'     => 'api/admin/users.php',
+    '/api/admin/stats'     => 'api/admin/stats.php',
+    '/api/admin/projects'  => 'api/admin/projects.php',
 ];
 
 if (isset($routes[$route])) {
